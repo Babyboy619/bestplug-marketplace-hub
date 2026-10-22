@@ -1,0 +1,16 @@
+# BESTPLUG MARKETPLACE
+- [x] Remove product-image form references, support multiple log files, and verify product-save request fields with form tests; published site still needs updating.
+- [x] Import the website and replace branding with the supplied logo and black/gold/white design.
+- [x] Restore missing linked account, wallet and product-detail pages; migrate schema to Cloud.
+- [x] Verify public pages and account/wallet behavior; check security.
+- [x] Requested publishing at https://bestplug-sparkle-deploy.lovable.app; deployment completion not yet verified.
+- [ ] Import existing customers/catalog/orders — blocked on record exports.
+- [ ] Replace NeuraPay with verified PayStark/Paystack wallet funding, external cart checkout, signed webhooks; credentials saved, live checks still unverified.
+- [ ] Fix session-aware navigation and secure admin dashboard/login redirects.
+- [ ] Implement database cart, multi-product checkout, wishlist and recently viewed.
+- [ ] Complete profile/photo/email/password/logout settings.
+- [ ] Complete three-part dashboard, shortcuts, contact page and remove obsolete achievement navigation.
+- [ ] Run rule tests and authenticated/mobile checks.
+- [ ] Repair missing admin schema definitions and verify the preview compiles.
+- [x] Verify the reported administrator sign-in error using the existing role system: admin redirect, page refresh and overview refresh pass in preview.
+- [ ] Restore remaining admin management setup and resolve release errors — blocked by invalid, protected pending migration 0004 (undeclared linked_orders variable).
