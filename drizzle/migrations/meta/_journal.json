@@ -1,0 +1,111 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1792101252436,
+      "tag": "0000_bestplug_marketplace",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792106077164,
+      "tag": "0001_fix_wallet_initialization",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792232242854,
+      "tag": "0002_shopping_and_paystack",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792245383875,
+      "tag": "0003_authorize_marketplace_admin",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792246937710,
+      "tag": "0004_admin_management",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792246937711,
+      "tag": "0005_admin_categories_notifications",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792253409000,
+      "tag": "0006_repair_marketplace_admin_assignment",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792341000000,
+      "tag": "0007_restore_active_admin_rpc",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792396277776,
+      "tag": "0008_repair_admin_authentication",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792397721856,
+      "tag": "0009_reload_schema_cache",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792463662951,
+      "tag": "0010_relax_product_stock_rule",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1792463662952,
+      "tag": "0011_admin_inventory_batches",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1792463662953,
+      "tag": "0012_secure_buy_now",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1792463662954,
+      "tag": "0013_plain_product_logs",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1792476416813,
+      "tag": "0013_restore_wallet_buy_now_function",
+      "breakpoints": true
+    }
+  ]
+}

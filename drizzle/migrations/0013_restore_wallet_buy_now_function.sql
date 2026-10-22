@@ -1,0 +1,43 @@
+ALTER TABLE public.product_credentials ADD COLUMN IF NOT EXISTS specifications jsonb NOT NULL DEFAULT '{}', ADD COLUMN IF NOT EXISTS delivery_instructions text NOT NULL DEFAULT '';
+ALTER TABLE public.order_items ADD COLUMN IF NOT EXISTS platform text, ADD COLUMN IF NOT EXISTS delivered_specifications jsonb NOT NULL DEFAULT '{}', ADD COLUMN IF NOT EXISTS delivery_instructions text NOT NULL DEFAULT '';
+CREATE OR REPLACE FUNCTION public.purchase_product_with_wallet(_product_id uuid, _request uuid) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
+DECLARE actor uuid:=auth.uid(); product public.products; wallet public.wallets; credential public.product_credentials; existing_order public.orders; item public.order_items; ord uuid; tx uuid; item_id uuid; platform_name text; remaining integer; new_balance numeric;
+BEGIN
+IF actor IS NULL THEN RAISE EXCEPTION 'Authentication required'; END IF;
+IF NOT EXISTS(SELECT 1 FROM public.profiles WHERE id=actor AND NOT suspended AND deleted_at IS NULL) THEN RAISE EXCEPTION 'Account suspended or deactivated'; END IF;
+IF _request IS NULL THEN RAISE EXCEPTION 'A checkout request key is required'; END IF;
+PERFORM pg_advisory_xact_lock(hashtextextended(actor::text||':'||_request::text,0));
+SELECT * INTO existing_order FROM public.orders WHERE user_id=actor AND request_key=_request;
+IF FOUND THEN
+IF existing_order.status<>'completed' THEN RAISE EXCEPTION 'This checkout request is already associated with an incomplete order'; END IF;
+SELECT * INTO item FROM public.order_items WHERE order_id=existing_order.id AND product_id=_product_id ORDER BY created_at LIMIT 1;
+IF NOT FOUND THEN RAISE EXCEPTION 'This checkout request was already used'; END IF;
+IF NULLIF(btrim(item.delivered_payload),'') IS NULL THEN RAISE EXCEPTION 'Delivery details are missing for this completed order'; END IF;
+RETURN jsonb_build_object('ok',true,'orderId',existing_order.id,'orderReference',existing_order.id::text,'orderItemId',item.id,'title',item.title,'platform',COALESCE(item.platform,'Uncategorized'),'unitPrice',item.unit_price,'createdAt',existing_order.created_at,'paymentStatus',existing_order.status,'deliveryStatus','delivered','deliveredPayload',item.delivered_payload,'specifications',item.delivered_specifications,'deliveryInstructions',item.delivery_instructions,'availableStock',(SELECT stock FROM public.products WHERE id=_product_id));
+END IF;
+SELECT * INTO product FROM public.products p WHERE p.id=_product_id AND p.published AND p.product_status='published' AND p.archived_at IS NULL AND (p.category_id IS NULL OR EXISTS(SELECT 1 FROM public.product_categories c WHERE c.id=p.category_id AND c.is_active AND c.deleted_at IS NULL)) FOR UPDATE;
+IF NOT FOUND THEN RAISE EXCEPTION 'This product is unpublished or unavailable'; END IF;
+SELECT count(*) INTO remaining FROM public.product_credentials WHERE product_id=_product_id AND order_id IS NULL AND assigned_to IS NULL;
+IF remaining=0 THEN RETURN jsonb_build_object('ok',false,'code','out_of_stock'); END IF;
+SELECT * INTO wallet FROM public.wallets WHERE user_id=actor FOR UPDATE;
+IF NOT FOUND THEN RAISE EXCEPTION 'Wallet not found'; END IF;
+IF wallet.currency<>product.currency THEN RAISE EXCEPTION 'Currency mismatch'; END IF;
+IF product.price<=0 THEN RAISE EXCEPTION 'Invalid product price'; END IF;
+IF wallet.balance<product.price THEN RAISE EXCEPTION 'Insufficient wallet balance'; END IF;
+SELECT * INTO credential FROM public.product_credentials WHERE product_id=_product_id AND order_id IS NULL AND assigned_to IS NULL ORDER BY created_at,id LIMIT 1 FOR UPDATE;
+IF NOT FOUND THEN RAISE EXCEPTION 'This product just sold out'; END IF;
+IF NULLIF(btrim(credential.content),'') IS NULL OR jsonb_typeof(credential.specifications)<>'object' THEN RAISE EXCEPTION 'Delivery details are missing or invalid'; END IF;
+SELECT COALESCE(c.name,'Uncategorized') INTO platform_name FROM public.products p LEFT JOIN public.product_categories c ON c.id=p.category_id WHERE p.id=_product_id;
+UPDATE public.wallets SET balance=balance-product.price,updated_at=now() WHERE id=wallet.id RETURNING balance INTO new_balance;
+INSERT INTO public.wallet_transactions(wallet_id,user_id,type,amount,balance_after,status,provider,reference,description,metadata) VALUES(wallet.id,actor,'debit',product.price,new_balance,'success','manual','buy-now-'||_request::text,'Purchase: '||product.title,jsonb_build_object('product_id',product.id,'request_key',_request)) RETURNING id INTO tx;
+INSERT INTO public.orders(user_id,total,currency,status,wallet_tx_id,request_key) VALUES(actor,product.price,product.currency,'completed',tx,_request) RETURNING id INTO ord;
+UPDATE public.product_credentials SET order_id=ord,assigned_to=actor,delivered_at=now() WHERE id=credential.id AND order_id IS NULL AND assigned_to IS NULL;
+IF NOT FOUND THEN RAISE EXCEPTION 'Inventory assignment failed'; END IF;
+INSERT INTO public.order_items(order_id,product_id,title,unit_price,quantity,delivered_payload,platform,delivered_specifications,delivery_instructions) VALUES(ord,product.id,product.title,product.price,1,credential.content,platform_name,credential.specifications,credential.delivery_instructions) RETURNING id INTO item_id;
+SELECT count(*) INTO remaining FROM public.product_credentials WHERE product_id=_product_id AND order_id IS NULL AND assigned_to IS NULL;
+UPDATE public.products SET stock=remaining,product_status=CASE WHEN remaining=0 THEN 'unavailable'::public.product_status ELSE product_status END,updated_at=now() WHERE id=_product_id;
+RETURN jsonb_build_object('ok',true,'orderId',ord,'orderReference',ord::text,'orderItemId',item_id,'title',product.title,'platform',platform_name,'unitPrice',product.price,'createdAt',now(),'paymentStatus','completed','deliveryStatus','delivered','deliveredPayload',credential.content,'specifications',credential.specifications,'deliveryInstructions',credential.delivery_instructions,'availableStock',remaining);
+END; $$;
+REVOKE ALL ON FUNCTION public.purchase_product_with_wallet(uuid,uuid) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.purchase_product_with_wallet(uuid,uuid) TO authenticated;
+NOTIFY pgrst,'reload schema';
