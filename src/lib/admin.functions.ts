@@ -657,10 +657,10 @@ export const adminSaveProduct = createServerFn({ method: "POST" })
     }
     const { data: result, error } = await context.supabase.rpc("admin_save_product_with_logs", {
       _reference: data.reference,
-      _product_id: data.id,
+      _product_id: (data.id ?? null) as string,
       _title: data.title,
       _slug: slug,
-      _category_id: data.categoryId,
+      _category_id: (data.categoryId ?? null) as string,
       _description: data.description,
       _price: data.price,
       _status: data.status,
