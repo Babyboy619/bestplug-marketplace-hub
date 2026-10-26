@@ -113,6 +113,13 @@
       "when": 1792792955702,
       "tag": "0015_baseline_marker",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1792977219447,
+      "tag": "0016_grant_is_active_admin_to_anon",
+      "breakpoints": true
     }
   ]
 }
