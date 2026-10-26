@@ -13,3 +13,4 @@
 - Keep shared branding in SiteFrame and semantic styling in src/styles.css so all marketplace pages remain consistent.
 - Own the browser session subscription in AuthProvider, and keep payment credentials and settlement operations server-only for consistent authentication and safe wallet updates.
 - Verify dashboard access with the existing has_role RPC and active profile status; dashboard reads must use deployed schema so pending management migrations cannot block sign-in.
+- The deploy snapshot excludes .env (gitignored), so client-side VITE_ backend constants (project URL + publishable key, public by design) are also wired as fallbacks in vite.config.ts before defineConfig; platform-injected env always wins. Why: a published build without them renders a blank screen with "Missing Supabase environment variable(s)".
