@@ -5,12 +5,12 @@
 - [x] Verify public pages and account/wallet behavior; check security.
 - [x] Requested publishing at https://bestplug-sparkle-deploy.lovable.app; deployment completion not yet verified.
 - [ ] Import existing customers/catalog/orders — blocked on record exports.
-- [ ] Replace NeuraPay with verified PayStark/Paystack wallet funding, external cart checkout, signed webhooks; credentials saved, live checks still unverified.
+- [ ] PayStark/Paystack wallet funding: schema and signed webhook live on Cloud, credentials saved; live funding check still pending user webhook configuration.
 - [ ] Fix session-aware navigation and secure admin dashboard/login redirects.
 - [ ] Implement database cart, multi-product checkout, wishlist and recently viewed.
 - [ ] Complete profile/photo/email/password/logout settings.
 - [ ] Complete three-part dashboard, shortcuts, contact page and remove obsolete achievement navigation.
 - [ ] Run rule tests and authenticated/mobile checks.
-- [ ] Repair missing admin schema definitions and verify the preview compiles.
+- [x] Repair missing admin schema definitions and verify the preview compiles; full migration set applied to Cloud, preview compiles clean.
 - [x] Verify the reported administrator sign-in error using the existing role system: admin redirect, page refresh and overview refresh pass in preview.
 - [ ] Restore remaining admin management setup and resolve release errors — blocked by invalid, protected pending migration 0004 (undeclared linked_orders variable).
