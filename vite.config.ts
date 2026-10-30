@@ -29,6 +29,9 @@ const bakedClientEnv = Object.fromEntries(
 );
 
 export default defineConfig({
+  vite: {
+    define: bakedClientEnv,
+  },
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
