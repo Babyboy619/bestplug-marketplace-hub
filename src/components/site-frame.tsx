@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import logo from "@/assets/bestplug-logo.jpg.asset.json";
+import { assetUrl } from "@/lib/assets";
 import { Button } from "@/components/ui/button";
 import { useAuthUser } from "@/hooks/use-auth-user";
 import { supabase } from "@/integrations/supabase/client";
@@ -155,7 +156,7 @@ export function SiteFrame({ children }: { children: ReactNode }) {
           </Button>
           <Link to="/" aria-label="BESTPLUG dashboard" className="flex min-w-0 items-center gap-2">
             <img
-              src={logo.url}
+              src={assetUrl(logo)}
               alt="BestPlug logo"
               className="size-9 shrink-0 rounded-full object-cover"
             />

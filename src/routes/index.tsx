@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import logo from "@/assets/bestplug-logo.jpg.asset.json";
+import { assetUrl } from "@/lib/assets";
 import { SiteFrame } from "@/components/site-frame";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -106,7 +107,7 @@ function HomePage() {
       <main>
         <section className="market-hero">
           <div className="hero-inner">
-            <img className="hero-logo" src={logo.url} alt="BestPlug gold crown and plug logo" />
+            <img className="hero-logo" src={assetUrl(logo)} alt="BestPlug gold crown and plug logo" />
             <div className="hero-copy">
               <p className="flex items-center gap-2 text-xs font-semibold uppercase text-primary">
                 <Crown className="size-4" />
