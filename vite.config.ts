@@ -18,7 +18,20 @@ for (const [key, value] of Object.entries(cloudEnv)) {
   if (!process.env[key]) process.env[key] = value;
 }
 
+// Bake the same public constants into import.meta.env for every build of this
+// code (Lovable publish or a self-hosted export such as Cloudflare Pages), even
+// when neither .env nor platform-injected env is present.
+const bakedClientEnv = Object.fromEntries(
+  Object.entries(cloudEnv).map(([key, value]) => [
+    `import.meta.env.${key}`,
+    JSON.stringify(value),
+  ]),
+);
+
 export default defineConfig({
+  vite: {
+    define: bakedClientEnv,
+  },
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
