@@ -116,7 +116,7 @@ function HomePage() {
               <h1 className="brand-title hero-title">
                 BESTPLUG
                 <br />
-                <span className="text-primary">MARKETPLACE.</span>
+                <span className="hero-accent">MARKETPLACE.</span>
               </h1>
               <p className="mt-5 max-w-md text-base leading-7 text-muted-foreground">
                 Social media accounts for your next big idea.
@@ -137,12 +137,12 @@ function HomePage() {
                   <ArrowRight className="size-5" />
                 </Button>
               </form>
-              <div className="mt-5 flex flex-wrap gap-5 text-xs text-muted-foreground">
-                <span className="flex items-center gap-2">
+              <div className="mt-6 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                <span className="flex items-center gap-2 rounded-full border border-border bg-card/80 px-3 py-1.5 font-medium backdrop-blur">
                   <ShieldCheck className="size-4 text-primary" />
                   Secure checkout
                 </span>
-                <span className="flex items-center gap-2">
+                <span className="flex items-center gap-2 rounded-full border border-border bg-card/80 px-3 py-1.5 font-medium backdrop-blur">
                   <Wallet className="size-4 text-primary" />
                   Wallet payments
                 </span>
@@ -172,7 +172,7 @@ function HomePage() {
                 Welcome back{displayName ? `, ${displayName}` : ""}
               </h2>
             </div>
-            <div className="flex flex-col gap-4 rounded-xl border border-orange-200 bg-orange-50 p-5 text-slate-900 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-4 rounded-2xl border border-primary/25 bg-accent p-5 text-accent-foreground sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-sm font-semibold">Wallet Balance</p>
                 <p className="mt-2 text-3xl font-bold tabular-nums">
@@ -190,7 +190,7 @@ function HomePage() {
               </div>
               <Button
                 asChild
-                className="w-full bg-orange-500 text-white hover:bg-orange-600 sm:w-auto"
+                className="w-full bg-primary text-primary-foreground hover:bg-primary/90 sm:w-auto"
               >
                 <Link to="/wallet">
                   Fund Wallet <Wallet aria-hidden="true" />
