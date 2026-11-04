@@ -225,7 +225,7 @@ export function SiteFrame({ children }: { children: ReactNode }) {
       </header>
 
       {menuOpen && (
-        <div className="fixed inset-0 z-[70] flex bg-slate-950/60 backdrop-blur-[2px]">
+        <div className="fixed inset-0 z-[70] flex bg-background/70 backdrop-blur-[2px]">
           <button
             type="button"
             aria-label="Close main menu"
@@ -236,15 +236,15 @@ export function SiteFrame({ children }: { children: ReactNode }) {
             role="dialog"
             aria-modal="true"
             aria-label="Main navigation menu"
-            className="relative z-10 flex h-full w-[57vw] min-w-[180px] max-w-[320px] flex-col overflow-y-auto bg-[#101a31] px-3 pb-6 pt-[max(1rem,env(safe-area-inset-top))] text-slate-100 shadow-2xl sm:px-5"
+            className="relative z-10 flex h-full w-[57vw] min-w-[180px] max-w-[320px] flex-col overflow-y-auto border-r border-border bg-card px-3 pb-6 pt-[max(1rem,env(safe-area-inset-top))] text-card-foreground shadow-2xl sm:px-5"
           >
-            <div className="flex items-center justify-between border-b border-white/10 pb-4">
-              <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-300">Menu</p>
+            <div className="flex items-center justify-between border-b border-border pb-4">
+              <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">Menu</p>
               <Button
                 variant="ghost"
                 size="icon"
                 aria-label="Close menu"
-                className="size-9 text-slate-300 hover:bg-white/10 hover:text-white"
+                className="size-9 text-muted-foreground hover:bg-accent hover:text-foreground"
                 onClick={() => setMenuOpen(false)}
               >
                 <X />
