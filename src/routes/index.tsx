@@ -137,12 +137,12 @@ function HomePage() {
                   <ArrowRight className="size-5" />
                 </Button>
               </form>
-              <div className="mt-5 flex flex-wrap gap-5 text-xs text-muted-foreground">
-                <span className="flex items-center gap-2">
+              <div className="mt-6 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                <span className="flex items-center gap-2 rounded-full border border-border bg-card/80 px-3 py-1.5 font-medium backdrop-blur">
                   <ShieldCheck className="size-4 text-primary" />
                   Secure checkout
                 </span>
-                <span className="flex items-center gap-2">
+                <span className="flex items-center gap-2 rounded-full border border-border bg-card/80 px-3 py-1.5 font-medium backdrop-blur">
                   <Wallet className="size-4 text-primary" />
                   Wallet payments
                 </span>
