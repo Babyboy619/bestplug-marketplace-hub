@@ -253,7 +253,7 @@ export function SiteFrame({ children }: { children: ReactNode }) {
             <nav className="mt-4 space-y-5" aria-label="Main menu">
               {menuSections.map((section) => (
                 <section key={section.title}>
-                  <h2 className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                  <h2 className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
                     {section.title}
                   </h2>
                   <div className="space-y-1">
@@ -263,11 +263,11 @@ export function SiteFrame({ children }: { children: ReactNode }) {
                         to={to}
                         {...(hash ? { hash } : {})}
                         activeOptions={{ exact: to === "/" && !hash }}
-                        activeProps={{ className: "!bg-orange-500 !text-white" }}
-                        className="flex min-h-10 items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-slate-200 transition-colors hover:bg-white/10"
+                        activeProps={{ className: "!bg-primary !text-primary-foreground" }}
+                        className="flex min-h-10 items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
                         onClick={() => setMenuOpen(false)}
                       >
-                        <Icon aria-hidden="true" className="size-[18px] shrink-0 text-orange-300" />
+                        <Icon aria-hidden="true" className="size-[18px] shrink-0 text-primary" />
                         <span className="min-w-0">{label}</span>
                       </Link>
                     ))}
@@ -276,17 +276,17 @@ export function SiteFrame({ children }: { children: ReactNode }) {
               ))}
               {isAdmin && (
                 <section>
-                  <h2 className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                  <h2 className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
                     Administration
                   </h2>
                   <Link
                     to="/admin"
-                    className="flex min-h-10 items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-slate-200 transition-colors hover:bg-white/10"
+                    className="flex min-h-10 items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
                     onClick={() => setMenuOpen(false)}
                   >
                     <ShieldCheck
                       aria-hidden="true"
-                      className="size-[18px] shrink-0 text-orange-300"
+                      className="size-[18px] shrink-0 text-primary"
                     />
                     <span>Admin Dashboard</span>
                   </Link>
