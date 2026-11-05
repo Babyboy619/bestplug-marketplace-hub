@@ -24,6 +24,7 @@ import { Route as ProductsSlugRouteImport } from './routes/products.$slug'
 import { Route as ApiPublicNeurapayWebhookRouteImport } from './routes/api/public/neurapay-webhook'
 import { Route as ApiPublicPaystackWebhookRouteImport } from './routes/api/public/paystack-webhook'
 import { Route as ApiPublicPaystarkWebhookRouteImport } from './routes/api/public/paystark-webhook'
+import { Route as ApiPublicWalletPaymentsRouteImport } from './routes/api/public/wallet-payments'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -103,6 +104,11 @@ const ApiPublicPaystarkWebhookRoute =
     path: '/api/public/paystark-webhook',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicWalletPaymentsRoute = ApiPublicWalletPaymentsRouteImport.update({
+  id: '/api/public/wallet-payments',
+  path: '/api/public/wallet-payments',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -120,6 +126,7 @@ export interface FileRoutesByFullPath {
   '/api/public/neurapay-webhook': typeof ApiPublicNeurapayWebhookRoute
   '/api/public/paystack-webhook': typeof ApiPublicPaystackWebhookRoute
   '/api/public/paystark-webhook': typeof ApiPublicPaystarkWebhookRoute
+  '/api/public/wallet-payments': typeof ApiPublicWalletPaymentsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -137,6 +144,7 @@ export interface FileRoutesByTo {
   '/api/public/neurapay-webhook': typeof ApiPublicNeurapayWebhookRoute
   '/api/public/paystack-webhook': typeof ApiPublicPaystackWebhookRoute
   '/api/public/paystark-webhook': typeof ApiPublicPaystarkWebhookRoute
+  '/api/public/wallet-payments': typeof ApiPublicWalletPaymentsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -155,6 +163,7 @@ export interface FileRoutesById {
   '/api/public/neurapay-webhook': typeof ApiPublicNeurapayWebhookRoute
   '/api/public/paystack-webhook': typeof ApiPublicPaystackWebhookRoute
   '/api/public/paystark-webhook': typeof ApiPublicPaystarkWebhookRoute
+  '/api/public/wallet-payments': typeof ApiPublicWalletPaymentsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -174,6 +183,7 @@ export interface FileRouteTypes {
     | '/api/public/neurapay-webhook'
     | '/api/public/paystack-webhook'
     | '/api/public/paystark-webhook'
+    | '/api/public/wallet-payments'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -191,6 +201,7 @@ export interface FileRouteTypes {
     | '/api/public/neurapay-webhook'
     | '/api/public/paystack-webhook'
     | '/api/public/paystark-webhook'
+    | '/api/public/wallet-payments'
   id:
     | '__root__'
     | '/'
@@ -208,6 +219,7 @@ export interface FileRouteTypes {
     | '/api/public/neurapay-webhook'
     | '/api/public/paystack-webhook'
     | '/api/public/paystark-webhook'
+    | '/api/public/wallet-payments'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -225,6 +237,7 @@ export interface RootRouteChildren {
   ApiPublicNeurapayWebhookRoute: typeof ApiPublicNeurapayWebhookRoute
   ApiPublicPaystackWebhookRoute: typeof ApiPublicPaystackWebhookRoute
   ApiPublicPaystarkWebhookRoute: typeof ApiPublicPaystarkWebhookRoute
+  ApiPublicWalletPaymentsRoute: typeof ApiPublicWalletPaymentsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -334,6 +347,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPaystarkWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/wallet-payments': {
+      id: '/api/public/wallet-payments'
+      path: '/api/public/wallet-payments'
+      fullPath: '/api/public/wallet-payments'
+      preLoaderRoute: typeof ApiPublicWalletPaymentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -364,6 +384,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicNeurapayWebhookRoute: ApiPublicNeurapayWebhookRoute,
   ApiPublicPaystackWebhookRoute: ApiPublicPaystackWebhookRoute,
   ApiPublicPaystarkWebhookRoute: ApiPublicPaystarkWebhookRoute,
+  ApiPublicWalletPaymentsRoute: ApiPublicWalletPaymentsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

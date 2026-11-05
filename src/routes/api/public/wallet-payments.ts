@@ -1,0 +1,162 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { createClient } from "@supabase/supabase-js";
+import { z } from "zod";
+import type { Database } from "@/integrations/supabase/types";
+import { initializeWalletTopup, verifyWalletTopup } from "@/lib/paystark.payment.server";
+import { topupAmountSchema } from "@/lib/payment-validation";
+
+const MAX_BODY_BYTES = 16_384;
+const MAIN_ORIGIN = "https://bestplug-marketplace-hub.lovable.app";
+const CUSTOM_ORIGIN = "https://bestplugmarketplace.shop";
+const referenceSchema = z
+  .string()
+  .trim()
+  .min(8)
+  .max(80)
+  .regex(/^[A-Za-z0-9._-]+$/);
+const payloadSchema = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("initialize"), amount: topupAmountSchema.shape.amount }),
+  z.object({ action: z.literal("verify"), reference: referenceSchema }),
+]);
+
+function allowedOrigins() {
+  const configured = (process.env["PAYMENT_ALLOWED_ORIGINS"] ?? "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+  return new Set([MAIN_ORIGIN, CUSTOM_ORIGIN, ...configured]);
+}
+
+function corsHeaders(origin: string) {
+  return {
+    "Access-Control-Allow-Origin": origin,
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Authorization, Content-Type",
+    "Access-Control-Max-Age": "600",
+    Vary: "Origin",
+  };
+}
+
+function jsonResponse(body: unknown, status: number, origin: string) {
+  return Response.json(body, { status, headers: corsHeaders(origin) });
+}
+
+async function authenticate(request: Request) {
+  const authorization = request.headers.get("authorization") ?? "";
+  if (!authorization.startsWith("Bearer ")) throw new Error("Unauthorized");
+  const token = authorization.slice("Bearer ".length);
+  if (!token || token.split(".").length !== 3) throw new Error("Unauthorized");
+
+  const supabaseUrl = process.env["SUPABASE_URL"];
+  const publishableKey = process.env["SUPABASE_PUBLISHABLE_KEY"];
+  if (!supabaseUrl || !publishableKey) throw new Error("Authentication is unavailable");
+  const supabase = createClient<Database>(supabaseUrl, publishableKey, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { data, error } = await supabase.auth.getClaims(token);
+  const claims = data?.claims;
+  if (error || !claims || typeof claims.sub !== "string") throw new Error("Unauthorized");
+
+  const profile = await supabase
+    .from("profiles")
+    .select("id,suspended,deleted_at")
+    .eq("id", claims.sub)
+    .maybeSingle();
+  let account: { id: string; suspended: boolean; deleted_at?: string | null } | null = profile.data;
+  let accountError = profile.error;
+  if (accountError?.code === "PGRST204" || accountError?.code === "42703") {
+    const fallback = await supabase
+      .from("profiles")
+      .select("id,suspended")
+      .eq("id", claims.sub)
+      .maybeSingle();
+    account = fallback.data;
+    accountError = fallback.error;
+  }
+  if (
+    accountError ||
+    !account ||
+    account.suspended ||
+    ("deleted_at" in account && account.deleted_at)
+  ) {
+    throw new Error("This account is suspended or deactivated.");
+  }
+  return {
+    userId: claims.sub,
+    email: typeof claims.email === "string" ? claims.email : "",
+  };
+}
+
+export const Route = createFileRoute("/api/public/wallet-payments")({
+  server: {
+    handlers: {
+      OPTIONS: async ({ request }) => {
+        const origin = request.headers.get("origin") ?? "";
+        if (!allowedOrigins().has(origin)) return new Response(null, { status: 403 });
+        return new Response(null, { status: 204, headers: corsHeaders(origin) });
+      },
+      POST: async ({ request }) => {
+        const origin = request.headers.get("origin") ?? "";
+        if (!allowedOrigins().has(origin))
+          return Response.json({ error: "Origin not allowed." }, { status: 403 });
+        const headers = corsHeaders(origin);
+        const contentLength = request.headers.get("content-length");
+        if (contentLength && Number(contentLength) > MAX_BODY_BYTES) {
+          return Response.json({ error: "Request is too large." }, { status: 413, headers });
+        }
+        const rawBody = await request.text();
+        if (new TextEncoder().encode(rawBody).byteLength > MAX_BODY_BYTES) {
+          return Response.json({ error: "Request is too large." }, { status: 413, headers });
+        }
+        let body: unknown;
+        try {
+          body = JSON.parse(rawBody);
+        } catch {
+          return Response.json({ error: "Invalid request." }, { status: 400, headers });
+        }
+        const parsed = payloadSchema.safeParse(body);
+        if (!parsed.success) {
+          return Response.json(
+            { error: parsed.error.issues[0]?.message ?? "Invalid request." },
+            { status: 400, headers },
+          );
+        }
+
+        try {
+          const user = await authenticate(request);
+          if (parsed.data.action === "initialize") {
+            if (!user.email) {
+              return Response.json(
+                { error: "Your account needs a verified email to start payment." },
+                { status: 400, headers },
+              );
+            }
+            const result = await initializeWalletTopup({
+              ...user,
+              amount: parsed.data.amount,
+              callbackUrl: new URL("/payments/callback", origin).toString(),
+            });
+            return Response.json(result, { headers });
+          }
+          return Response.json(await verifyWalletTopup(parsed.data.reference, user.userId), {
+            headers,
+          });
+        } catch (error) {
+          const unauthorized = error instanceof Error && error.message === "Unauthorized";
+          return jsonResponse(
+            {
+              error: unauthorized
+                ? "Your session is invalid. Sign in again."
+                : error instanceof Error
+                  ? error.message
+                  : "Payment request failed.",
+            },
+            unauthorized ? 401 : 400,
+            origin,
+          );
+        }
+      },
+    },
+  },
+});

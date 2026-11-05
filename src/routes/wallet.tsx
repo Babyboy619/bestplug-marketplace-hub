@@ -1,6 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { useServerFn } from "@tanstack/react-start";
+import { useCallback, useEffect, useState } from "react";
 import { ArrowUpRight, Copy, Wallet } from "lucide-react";
 import { SiteFrame } from "@/components/site-frame";
 import { Button } from "@/components/ui/button";
@@ -10,7 +9,7 @@ import { useWalletBalance } from "@/hooks/use-wallet-balance";
 import { supabase } from "@/integrations/supabase/client";
 import { pageHead } from "@/lib/metadata";
 import { siteConfig } from "@/lib/site-config";
-import { startPaystarkTopup, verifyPaystarkTopup } from "@/lib/paystark.functions";
+import { startWalletTopup, verifyWalletTopup } from "@/lib/paystark.client";
 import type { Database } from "@/integrations/supabase/types";
 
 type Tx = Database["public"]["Tables"]["wallet_transactions"]["Row"];
@@ -30,19 +29,20 @@ export const Route = createFileRoute("/wallet")({
 
 function WalletPage() {
   const { user, loading } = useAuthUser();
-  const { balance, balanceLoading, balanceError, refresh: refreshBalance } = useWalletBalance(
-    user?.id,
-  );
+  const {
+    balance,
+    balanceLoading,
+    balanceError,
+    refresh: refreshBalance,
+  } = useWalletBalance(user?.id);
   const [transactions, setTransactions] = useState<Tx[]>([]);
   const [orders, setOrders] = useState<OrderView[]>([]);
   const [message, setMessage] = useState("");
   const [amount, setAmount] = useState("1000");
   const [paymentBusy, setPaymentBusy] = useState(false);
   const [pendingPayment, setPendingPayment] = useState<PendingPayment | null>(null);
-  const startTopup = useServerFn(startPaystarkTopup);
-  const verifyTopup = useServerFn(verifyPaystarkTopup);
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     const currentBalance = await refreshBalance();
     if (currentBalance === null) {
       setMessage("Your wallet balance could not be loaded. Please try again.");
@@ -104,7 +104,7 @@ function WalletPage() {
           }
         : null,
     );
-  }
+  }, [refreshBalance]);
 
   useEffect(() => {
     if (!user) {
@@ -116,7 +116,7 @@ function WalletPage() {
     const handlePurchase = () => void refresh();
     window.addEventListener("bestplug-orders-updated", handlePurchase);
     return () => window.removeEventListener("bestplug-orders-updated", handlePurchase);
-  }, [user]);
+  }, [refresh, user]);
 
   return (
     <SiteFrame>
@@ -164,9 +164,9 @@ function WalletPage() {
                     setPaymentBusy(true);
                     setMessage("");
                     try {
-                      const started = await startTopup({ data: { amount: Number(amount) } });
+                      const started = await startWalletTopup(Number(amount));
                       setPendingPayment(started);
-                      setMessage("Payment started. Complete checkout, then check its status here.");
+                      window.location.assign(started.authorizationUrl);
                     } catch (error) {
                       setMessage(
                         error instanceof Error ? error.message : "Payment could not be started.",
@@ -221,9 +221,7 @@ function WalletPage() {
                     setPaymentBusy(true);
                     setMessage("");
                     try {
-                      const result = await verifyTopup({
-                        data: { reference: pendingPayment.reference },
-                      });
+                      const result = await verifyWalletTopup(pendingPayment.reference);
                       setMessage(
                         result.error ??
                           (result.status === "success"

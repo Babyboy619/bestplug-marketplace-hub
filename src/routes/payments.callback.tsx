@@ -1,15 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { CheckCircle2, Clock3, XCircle } from "lucide-react";
-import { useServerFn } from "@tanstack/react-start";
 import { SiteFrame } from "@/components/site-frame";
 import { Button } from "@/components/ui/button";
 import { useAuthUser } from "@/hooks/use-auth-user";
-import { verifyPaystarkTopup } from "@/lib/paystark.functions";
+import { useWalletBalance } from "@/hooks/use-wallet-balance";
+import { verifyWalletTopup } from "@/lib/paystark.client";
 import { pageHead } from "@/lib/metadata";
 
 export const Route = createFileRoute("/payments/callback")({
-  head: () => pageHead("Payment Status", "Check your BestPlug wallet payment confirmation securely."),
+  head: () =>
+    pageHead("Payment Status", "Check your BestPlug wallet payment confirmation securely."),
   validateSearch: (search: Record<string, unknown>) => ({
     reference: typeof search["reference"] === "string" ? search["reference"] : "",
   }),
@@ -19,14 +20,14 @@ export const Route = createFileRoute("/payments/callback")({
 function PaymentCallbackPage() {
   const { reference } = Route.useSearch();
   const { user, loading: authLoading } = useAuthUser();
-  const verify = useServerFn(verifyPaystarkTopup);
+  const { balance, refresh: refreshBalance } = useWalletBalance(user?.id);
   const [status, setStatus] = useState<"checking" | "success" | "pending" | "failed">("checking");
   const [message, setMessage] = useState("Checking payment with Paystack…");
 
   useEffect(() => {
     if (authLoading || !user || !reference) return;
     let active = true;
-    void verify({ data: { reference } })
+    void verifyWalletTopup(reference)
       .then((result) => {
         if (!active) return;
         setStatus(
@@ -43,6 +44,7 @@ function PaymentCallbackPage() {
               : "Payment has not been confirmed."),
         );
         if (result.status === "success") {
+          void refreshBalance();
           window.dispatchEvent(new Event("bestplug-wallet-updated"));
         }
       })
@@ -54,7 +56,7 @@ function PaymentCallbackPage() {
     return () => {
       active = false;
     };
-  }, [authLoading, reference, user, verify]);
+  }, [authLoading, reference, user, refreshBalance]);
 
   const Icon = status === "success" ? CheckCircle2 : status === "failed" ? XCircle : Clock3;
   return (
@@ -76,6 +78,12 @@ function PaymentCallbackPage() {
                 ? "Sign in to verify this payment."
                 : message}
           </p>
+          {status === "success" && balance !== null && (
+            <p className="mt-3 text-sm font-medium">
+              Updated wallet balance: ₦
+              {balance.toLocaleString("en-NG", { minimumFractionDigits: 2 })}
+            </p>
+          )}
           <div className="mt-5 flex gap-3">
             {!user && (
               <Button asChild>
