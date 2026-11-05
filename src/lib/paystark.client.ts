@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 
-const DEFAULT_GATEWAY = "https://bestplug-marketplace-hub.lovable.app";
+const DEFAULT_GATEWAY = "https://bestplugmarketplace.shop";
 const gatewayOrigin = import.meta.env["VITE_PAYMENT_GATEWAY_URL"] || DEFAULT_GATEWAY;
 
 function getGatewayUrl() {

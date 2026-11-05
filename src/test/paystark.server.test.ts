@@ -163,7 +163,7 @@ describe("Paystack server adapter", () => {
     vi.stubEnv("PAYSTARK_BASE_URL", "https://api.paystack.co");
 
     expect(() => getPaystarkConfig()).toThrow(
-      "Payments are not available on this site yet. Please fund your wallet at https://bestplug-marketplace-hub.lovable.app.",
+      "Payments are not available right now. Please try again later.",
     );
   });
 

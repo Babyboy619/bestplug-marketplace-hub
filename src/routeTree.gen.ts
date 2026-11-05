@@ -22,6 +22,7 @@ import { Route as WalletRouteImport } from './routes/wallet'
 import { Route as PaymentsCallbackRouteImport } from './routes/payments.callback'
 import { Route as ProductsSlugRouteImport } from './routes/products.$slug'
 import { Route as ApiPublicNeurapayWebhookRouteImport } from './routes/api/public/neurapay-webhook'
+import { Route as ApiPublicPaymentHealthRouteImport } from './routes/api/public/payment-health'
 import { Route as ApiPublicPaystackWebhookRouteImport } from './routes/api/public/paystack-webhook'
 import { Route as ApiPublicPaystarkWebhookRouteImport } from './routes/api/public/paystark-webhook'
 import { Route as ApiPublicWalletPaymentsRouteImport } from './routes/api/public/wallet-payments'
@@ -92,6 +93,11 @@ const ApiPublicNeurapayWebhookRoute =
     path: '/api/public/neurapay-webhook',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicPaymentHealthRoute = ApiPublicPaymentHealthRouteImport.update({
+  id: '/api/public/payment-health',
+  path: '/api/public/payment-health',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicPaystackWebhookRoute =
   ApiPublicPaystackWebhookRouteImport.update({
     id: '/api/public/paystack-webhook',
@@ -124,6 +130,7 @@ export interface FileRoutesByFullPath {
   '/payments/callback': typeof PaymentsCallbackRoute
   '/products/$slug': typeof ProductsSlugRoute
   '/api/public/neurapay-webhook': typeof ApiPublicNeurapayWebhookRoute
+  '/api/public/payment-health': typeof ApiPublicPaymentHealthRoute
   '/api/public/paystack-webhook': typeof ApiPublicPaystackWebhookRoute
   '/api/public/paystark-webhook': typeof ApiPublicPaystarkWebhookRoute
   '/api/public/wallet-payments': typeof ApiPublicWalletPaymentsRoute
@@ -142,6 +149,7 @@ export interface FileRoutesByTo {
   '/payments/callback': typeof PaymentsCallbackRoute
   '/products/$slug': typeof ProductsSlugRoute
   '/api/public/neurapay-webhook': typeof ApiPublicNeurapayWebhookRoute
+  '/api/public/payment-health': typeof ApiPublicPaymentHealthRoute
   '/api/public/paystack-webhook': typeof ApiPublicPaystackWebhookRoute
   '/api/public/paystark-webhook': typeof ApiPublicPaystarkWebhookRoute
   '/api/public/wallet-payments': typeof ApiPublicWalletPaymentsRoute
@@ -161,6 +169,7 @@ export interface FileRoutesById {
   '/payments/callback': typeof PaymentsCallbackRoute
   '/products/$slug': typeof ProductsSlugRoute
   '/api/public/neurapay-webhook': typeof ApiPublicNeurapayWebhookRoute
+  '/api/public/payment-health': typeof ApiPublicPaymentHealthRoute
   '/api/public/paystack-webhook': typeof ApiPublicPaystackWebhookRoute
   '/api/public/paystark-webhook': typeof ApiPublicPaystarkWebhookRoute
   '/api/public/wallet-payments': typeof ApiPublicWalletPaymentsRoute
@@ -181,6 +190,7 @@ export interface FileRouteTypes {
     | '/payments/callback'
     | '/products/$slug'
     | '/api/public/neurapay-webhook'
+    | '/api/public/payment-health'
     | '/api/public/paystack-webhook'
     | '/api/public/paystark-webhook'
     | '/api/public/wallet-payments'
@@ -199,6 +209,7 @@ export interface FileRouteTypes {
     | '/payments/callback'
     | '/products/$slug'
     | '/api/public/neurapay-webhook'
+    | '/api/public/payment-health'
     | '/api/public/paystack-webhook'
     | '/api/public/paystark-webhook'
     | '/api/public/wallet-payments'
@@ -217,6 +228,7 @@ export interface FileRouteTypes {
     | '/payments/callback'
     | '/products/$slug'
     | '/api/public/neurapay-webhook'
+    | '/api/public/payment-health'
     | '/api/public/paystack-webhook'
     | '/api/public/paystark-webhook'
     | '/api/public/wallet-payments'
@@ -235,6 +247,7 @@ export interface RootRouteChildren {
   WalletRoute: typeof WalletRoute
   PaymentsCallbackRoute: typeof PaymentsCallbackRoute
   ApiPublicNeurapayWebhookRoute: typeof ApiPublicNeurapayWebhookRoute
+  ApiPublicPaymentHealthRoute: typeof ApiPublicPaymentHealthRoute
   ApiPublicPaystackWebhookRoute: typeof ApiPublicPaystackWebhookRoute
   ApiPublicPaystarkWebhookRoute: typeof ApiPublicPaystarkWebhookRoute
   ApiPublicWalletPaymentsRoute: typeof ApiPublicWalletPaymentsRoute
@@ -333,6 +346,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicNeurapayWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/payment-health': {
+      id: '/api/public/payment-health'
+      path: '/api/public/payment-health'
+      fullPath: '/api/public/payment-health'
+      preLoaderRoute: typeof ApiPublicPaymentHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/paystack-webhook': {
       id: '/api/public/paystack-webhook'
       path: '/api/public/paystack-webhook'
@@ -382,6 +402,7 @@ const rootRouteChildren: RootRouteChildren = {
   WalletRoute: WalletRoute,
   PaymentsCallbackRoute: PaymentsCallbackRoute,
   ApiPublicNeurapayWebhookRoute: ApiPublicNeurapayWebhookRoute,
+  ApiPublicPaymentHealthRoute: ApiPublicPaymentHealthRoute,
   ApiPublicPaystackWebhookRoute: ApiPublicPaystackWebhookRoute,
   ApiPublicPaystarkWebhookRoute: ApiPublicPaystarkWebhookRoute,
   ApiPublicWalletPaymentsRoute: ApiPublicWalletPaymentsRoute,

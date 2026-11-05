@@ -33,9 +33,7 @@ export function getPaystarkConfig(): PaystarkConfig {
     baseUrl.hostname !== "api.paystack.co" ||
     baseUrl.pathname !== "/"
   ) {
-    throw new Error(
-      "Payments are not available on this site yet. Please fund your wallet at https://bestplug-marketplace-hub.lovable.app.",
-    );
+    throw new Error("Payments are not available right now. Please try again later.");
   }
   return { secretKey, baseUrl: baseUrl.origin };
 }
