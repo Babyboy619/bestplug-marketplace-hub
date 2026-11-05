@@ -35,23 +35,39 @@ async function requestGateway<T>(body: Record<string, unknown>): Promise<T> {
       action,
       errorName: error instanceof Error ? error.name : "UnknownError",
     });
-    throw new Error("The payment service could not be reached. Please try again shortly.");
+    throw new Error(
+      "The payment service could not be reached. Please try again shortly. " +
+        "Main payment backend is unavailable or the route is not deployed.",
+    );
   }
+
   const result: unknown = await response.json().catch(() => null);
   if (!response.ok || typeof result !== "object" || result === null) {
+    const fallbackMessage =
+      response.status === 404
+        ? "The main payment backend is not live yet for this site. The wallet API route must be deployed on the main hosting platform."
+        : response.status === 401
+          ? "Your session is invalid or has expired. Please sign in again."
+          : response.status === 403
+            ? "This payment request is blocked by the site’s security settings."
+            : "Payment request failed. Please try again.";
+
     const message =
       typeof result === "object" &&
       result !== null &&
       "error" in result &&
       typeof result.error === "string"
         ? result.error
-        : "Payment request failed. Please try again.";
+        : fallbackMessage;
+
     console.error("[wallet-payments] gateway response error", {
       endpoint,
       action,
       status: response.status,
-      errorCode: response.status === 401 ? "unauthorized" : "gateway_rejected",
+      responseBody: result,
+      message,
     });
+
     throw new Error(message);
   }
   return result as T;
