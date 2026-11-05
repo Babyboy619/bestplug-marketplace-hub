@@ -158,6 +158,15 @@ describe("Paystack server adapter", () => {
     );
   });
 
+  it("rejects a deployment without the server-side payment secret with an actionable message", async () => {
+    vi.stubEnv("PAYSTARK_SECRET_KEY", "");
+    vi.stubEnv("PAYSTARK_BASE_URL", "https://api.paystack.co");
+
+    expect(() => getPaystarkConfig()).toThrow(
+      "Payments are not available on this site yet. Please fund your wallet at https://bestplug-marketplace-hub.lovable.app.",
+    );
+  });
+
   it("validates the provider webhook HMAC with SHA-512", async () => {
     const rawBody = JSON.stringify({ event: "charge.success" });
     const secret = "test_webhook_secret";
