@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { createClientOnlyFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useState } from "react";
 import { ArrowUpRight, Copy, Wallet } from "lucide-react";
 import { SiteFrame } from "@/components/site-frame";
@@ -9,8 +10,17 @@ import { useWalletBalance } from "@/hooks/use-wallet-balance";
 import { supabase } from "@/integrations/supabase/client";
 import { pageHead } from "@/lib/metadata";
 import { siteConfig } from "@/lib/site-config";
-import { startWalletTopup, verifyWalletTopup } from "@/lib/paystark.client";
 import type { Database } from "@/integrations/supabase/types";
+
+const startWalletTopup = createClientOnlyFn(async (amount: number) => {
+  const { startWalletTopup: start } = await import("@/lib/paystark.client");
+  return start(amount);
+});
+
+const verifyWalletTopup = createClientOnlyFn(async (reference: string) => {
+  const { verifyWalletTopup: verify } = await import("@/lib/paystark.client");
+  return verify(reference);
+});
 
 type Tx = Database["public"]["Tables"]["wallet_transactions"]["Row"];
 type Order = Database["public"]["Tables"]["order_items"]["Row"];
