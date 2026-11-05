@@ -16,16 +16,25 @@ async function requestGateway<T>(body: Record<string, unknown>): Promise<T> {
   const token = data.session?.access_token;
   if (error || !token) throw new Error("Sign in again before starting or checking a payment.");
 
+  const endpoint = getGatewayUrl();
+  const action = typeof body["action"] === "string" ? body["action"] : "unknown";
+  console.info("[wallet-payments] request", { endpoint, action });
+
   let response: Response;
   try {
-    response = await fetch(getGatewayUrl(), {
+    response = await fetch(endpoint, {
       method: "POST",
       mode: "cors",
       credentials: "omit",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-  } catch {
+  } catch (error) {
+    console.error("[wallet-payments] network failure", {
+      endpoint,
+      action,
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
     throw new Error("The payment service could not be reached. Please try again shortly.");
   }
   const result: unknown = await response.json().catch(() => null);
@@ -37,6 +46,12 @@ async function requestGateway<T>(body: Record<string, unknown>): Promise<T> {
       typeof result.error === "string"
         ? result.error
         : "Payment request failed. Please try again.";
+    console.error("[wallet-payments] gateway response error", {
+      endpoint,
+      action,
+      status: response.status,
+      errorCode: response.status === 401 ? "unauthorized" : "gateway_rejected",
+    });
     throw new Error(message);
   }
   return result as T;

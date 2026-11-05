@@ -47,8 +47,9 @@ async function authenticate(request: Request) {
   const token = authorization.slice("Bearer ".length);
   if (!token || token.split(".").length !== 3) throw new Error("Unauthorized");
 
-  const supabaseUrl = process.env["SUPABASE_URL"];
-  const publishableKey = process.env["SUPABASE_PUBLISHABLE_KEY"];
+  const supabaseUrl = process.env["SUPABASE_URL"] || import.meta.env["VITE_SUPABASE_URL"];
+  const publishableKey =
+    process.env["SUPABASE_PUBLISHABLE_KEY"] || import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"];
   if (!supabaseUrl || !publishableKey) throw new Error("Authentication is unavailable");
   const supabase = createClient<Database>(supabaseUrl, publishableKey, {
     global: { headers: { Authorization: `Bearer ${token}` } },
@@ -123,6 +124,12 @@ export const Route = createFileRoute("/api/public/wallet-payments")({
           );
         }
 
+        const requestId = crypto.randomUUID();
+        console.info("[wallet-payments] request", {
+          requestId,
+          action: parsed.data.action,
+          origin,
+        });
         try {
           const user = await authenticate(request);
           if (parsed.data.action === "initialize") {
@@ -144,6 +151,12 @@ export const Route = createFileRoute("/api/public/wallet-payments")({
           });
         } catch (error) {
           const unauthorized = error instanceof Error && error.message === "Unauthorized";
+          console.error("[wallet-payments] request failed", {
+            requestId,
+            action: parsed.data.action,
+            status: unauthorized ? 401 : 400,
+            failure: unauthorized ? "authentication" : "payment_or_configuration",
+          });
           return jsonResponse(
             {
               error: unauthorized
@@ -151,6 +164,7 @@ export const Route = createFileRoute("/api/public/wallet-payments")({
                 : error instanceof Error
                   ? error.message
                   : "Payment request failed.",
+              requestId,
             },
             unauthorized ? 401 : 400,
             origin,
