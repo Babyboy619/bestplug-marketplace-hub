@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { createClientOnlyFn } from "@tanstack/react-start";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowUpRight, Copy, Wallet } from "lucide-react";
 import { SiteFrame } from "@/components/site-frame";
 import { Button } from "@/components/ui/button";
@@ -51,6 +51,7 @@ function WalletPage() {
   const [amount, setAmount] = useState("1000");
   const [paymentBusy, setPaymentBusy] = useState(false);
   const [pendingPayment, setPendingPayment] = useState<PendingPayment | null>(null);
+  const paymentLock = useRef(false);
 
   const refresh = useCallback(async () => {
     const currentBalance = await refreshBalance();
@@ -171,6 +172,8 @@ function WalletPage() {
                   className="space-y-3"
                   onSubmit={async (event) => {
                     event.preventDefault();
+                    if (paymentLock.current) return;
+                    paymentLock.current = true;
                     setPaymentBusy(true);
                     setMessage("");
                     try {
@@ -181,7 +184,9 @@ function WalletPage() {
                       setMessage(
                         error instanceof Error ? error.message : "Payment could not be started.",
                       );
+                      void refresh();
                     } finally {
+                      paymentLock.current = false;
                       setPaymentBusy(false);
                     }
                   }}
@@ -228,6 +233,8 @@ function WalletPage() {
                   variant="outline"
                   disabled={paymentBusy}
                   onClick={async () => {
+                    if (paymentLock.current) return;
+                    paymentLock.current = true;
                     setPaymentBusy(true);
                     setMessage("");
                     try {
@@ -249,6 +256,7 @@ function WalletPage() {
                           : "Payment status could not be checked.",
                       );
                     } finally {
+                      paymentLock.current = false;
                       setPaymentBusy(false);
                     }
                   }}

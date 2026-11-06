@@ -3,20 +3,14 @@ import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import type { Database } from "@/integrations/supabase/types";
 import { initializeWalletTopup, verifyWalletTopup } from "@/lib/paystark.payment.server";
-import { topupAmountSchema } from "@/lib/payment-validation";
+import { paymentReferenceSchema, topupAmountSchema } from "@/lib/payment-validation";
 
 const MAX_BODY_BYTES = 16_384;
 const MAIN_ORIGIN = "https://bestplug-marketplace-hub.lovable.app";
 const CUSTOM_ORIGIN = "https://bestplugmarketplace.shop";
-const referenceSchema = z
-  .string()
-  .trim()
-  .min(8)
-  .max(80)
-  .regex(/^[A-Za-z0-9._-]+$/);
 const payloadSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("initialize"), amount: topupAmountSchema.shape.amount }),
-  z.object({ action: z.literal("verify"), reference: referenceSchema }),
+  z.object({ action: z.literal("verify"), reference: paymentReferenceSchema }),
 ]);
 
 function allowedOrigins() {

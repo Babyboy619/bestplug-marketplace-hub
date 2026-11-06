@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { getPaystarkConfig } from "@/lib/paystark.server";
 
 const MAX_BODY_BYTES = 262_144;
 
@@ -10,8 +11,15 @@ export const Route = createFileRoute("/api/public/paystark-webhook")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const secret = process.env["PAYSTARK_SECRET_KEY"];
-        if (!secret) return Response.json({ error: "Webhook is not configured." }, { status: 503 });
+        let config: ReturnType<typeof getPaystarkConfig>;
+        try {
+          config = getPaystarkConfig();
+        } catch (error) {
+          console.error("[paystark-webhook] configuration unavailable", {
+            errorName: error instanceof Error ? error.name : "UnknownError",
+          });
+          return Response.json({ error: "Webhook is not configured." }, { status: 503 });
+        }
 
         const contentLength = request.headers.get("content-length");
         if (contentLength && Number(contentLength) > MAX_BODY_BYTES) {
@@ -25,7 +33,7 @@ export const Route = createFileRoute("/api/public/paystark-webhook")({
 
         const { validSignature, settleVerified } = await import("@/lib/paystack.server");
         const signature = request.headers.get("x-paystack-signature") ?? "";
-        if (!(await validSignature(rawBody, signature, secret))) {
+        if (!(await validSignature(rawBody, signature, config.secretKey))) {
           return Response.json({ error: "Invalid signature." }, { status: 401 });
         }
 
@@ -46,12 +54,12 @@ export const Route = createFileRoute("/api/public/paystark-webhook")({
         }
 
         try {
-          await settleVerified(
-            data["reference"],
-            secret,
-            process.env["PAYSTARK_BASE_URL"] ?? "https://api.paystack.co",
-          );
-        } catch {
+          await settleVerified(data["reference"], config.secretKey, config.baseUrl);
+        } catch (error) {
+          console.error("[paystark-webhook] settlement failed", {
+            reference: data["reference"],
+            errorName: error instanceof Error ? error.name : "UnknownError",
+          });
           return Response.json({ error: "Settlement could not be completed." }, { status: 503 });
         }
         return Response.json({ received: true, credited: true });

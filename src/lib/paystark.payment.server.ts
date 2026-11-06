@@ -3,6 +3,16 @@ import {
   initializePaystarkTransaction,
   verifyPaystarkTransaction,
 } from "@/lib/paystark.server";
+import { paymentReferenceSchema, topupAmountSchema } from "@/lib/payment-validation";
+
+function errorCode(error: unknown) {
+  return typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    typeof error.code === "string"
+    ? error.code
+    : "unknown";
+}
 
 function toMinorUnits(amount: number) {
   return Math.round(amount * 100);
@@ -14,27 +24,38 @@ export async function initializeWalletTopup(input: {
   amount: number;
   callbackUrl: string;
 }) {
+  const amount = topupAmountSchema.parse({ amount: input.amount }).amount;
+  const email = input.email.trim();
+  if (!email) throw new Error("Your account needs a verified email to start payment.");
   const config = getPaystarkConfig();
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const reference = `ps-${crypto.randomUUID()}`;
-  const { error: intentError } = await supabaseAdmin.from("payment_intents").insert({
-    user_id: input.userId,
-    provider: "paystack",
-    reference,
-    amount: input.amount,
-    currency: "NGN",
-    status: "pending",
-  });
-  if (intentError) throw new Error("We could not start this payment. Please try again.");
+  try {
+    const { error: intentError } = await supabaseAdmin.from("payment_intents").insert({
+      user_id: input.userId,
+      provider: "paystack",
+      reference,
+      amount,
+      currency: "NGN",
+      status: "pending",
+    });
+    if (intentError) throw intentError;
+  } catch (error) {
+    console.error("[wallet-payments] intent creation failed", {
+      reference,
+      errorCode: errorCode(error),
+    });
+    throw new Error("Your payment could not be recorded. Please try again.");
+  }
 
   try {
     const checkout = await initializePaystarkTransaction(config, {
-      email: input.email,
-      amountMinor: toMinorUnits(input.amount),
+      email,
+      amountMinor: toMinorUnits(amount),
       reference,
       callbackUrl: input.callbackUrl,
     });
-    await supabaseAdmin
+    const { data: savedIntent, error: saveError } = await supabaseAdmin
       .from("payment_intents")
       .update({
         provider_reference: checkout.accessCode,
@@ -46,15 +67,32 @@ export async function initializeWalletTopup(input: {
       })
       .eq("reference", reference)
       .eq("user_id", input.userId)
-      .eq("status", "pending");
-    return { reference, authorizationUrl: checkout.authorizationUrl, amount: input.amount };
+      .eq("status", "pending")
+      .select("reference")
+      .maybeSingle();
+    if (saveError || !savedIntent) {
+      console.error("[wallet-payments] checkout details could not be saved", {
+        reference,
+        errorCode: errorCode(saveError),
+      });
+      throw new Error("The payment checkout could not be saved. Please try again.");
+    }
+    return { reference, authorizationUrl: checkout.authorizationUrl, amount };
   } catch (error) {
-    await supabaseAdmin
+    const { data: failedIntent, error: failureUpdateError } = await supabaseAdmin
       .from("payment_intents")
       .update({ status: "failed", updated_at: new Date().toISOString() })
       .eq("reference", reference)
       .eq("user_id", input.userId)
-      .eq("status", "pending");
+      .eq("status", "pending")
+      .select("reference")
+      .maybeSingle();
+    if (failureUpdateError || !failedIntent) {
+      console.error("[wallet-payments] failed intent could not be marked", {
+        reference,
+        errorCode: errorCode(failureUpdateError),
+      });
+    }
     throw error instanceof Error
       ? error
       : new Error("Paystack could not start this payment. Please try again.");
@@ -62,6 +100,7 @@ export async function initializeWalletTopup(input: {
 }
 
 export async function verifyWalletTopup(reference: string, userId: string) {
+  reference = paymentReferenceSchema.parse(reference);
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data: intent, error: intentError } = await supabaseAdmin
     .from("payment_intents")

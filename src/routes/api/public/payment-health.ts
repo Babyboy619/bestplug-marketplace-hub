@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { getPaystarkConfig } from "@/lib/paystark.server";
+import { getPaystarkConfigStatus } from "@/lib/paystark.server";
 
 const MAIN_ORIGIN = "https://bestplug-marketplace-hub.lovable.app";
 const CUSTOM_ORIGIN = "https://bestplugmarketplace.shop";
@@ -36,36 +36,37 @@ export const Route = createFileRoute("/api/public/payment-health")({
           return Response.json({ error: "Origin not allowed." }, { status: 403 });
         }
 
-        let providerConfigured = false;
-        try {
-          getPaystarkConfig();
-          providerConfigured = true;
-        } catch {
-          providerConfigured = false;
-        }
-
+        const paystack = getPaystarkConfigStatus();
         const supabaseUrl = process.env["SUPABASE_URL"] || import.meta.env["VITE_SUPABASE_URL"];
         const publishableKey =
           process.env["SUPABASE_PUBLISHABLE_KEY"] ||
           import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"];
         const authenticationConfigured = Boolean(supabaseUrl && publishableKey);
-        const databaseConfigured = Boolean(
-          process.env["SUPABASE_URL"] && process.env["SUPABASE_SERVICE_ROLE_KEY"],
-        );
-        const healthy = providerConfigured && authenticationConfigured && databaseConfigured;
+        const databaseUrlConfigured = Boolean(process.env["SUPABASE_URL"]);
+        const databaseServiceRoleConfigured = Boolean(process.env["SUPABASE_SERVICE_ROLE_KEY"]);
+        const databaseConfigured = databaseUrlConfigured && databaseServiceRoleConfigured;
+        const healthy = paystack.configured && authenticationConfigured && databaseConfigured;
         const body = {
           status: healthy ? "ok" : "degraded",
           backend: "available",
           paymentInitializationRoute: "available",
+          paymentVerificationRoute: "available",
           provider: "paystack",
-          providerConfigured,
+          providerConfigured: paystack.configured,
+          paystackSecretConfigured: paystack.secretConfigured,
+          paystackApiUrlConfigured: paystack.apiUrlConfigured,
           authenticationConfigured,
           databaseConfigured,
+          databaseUrlConfigured,
+          databaseServiceRoleConfigured,
         };
 
         return Response.json(body, {
           status: healthy ? 200 : 503,
-          ...(origin ? { headers: corsHeaders(origin) } : {}),
+          headers: {
+            "Cache-Control": "no-store",
+            ...(origin ? corsHeaders(origin) : {}),
+          },
         });
       },
     },

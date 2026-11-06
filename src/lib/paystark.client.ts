@@ -35,22 +35,21 @@ async function requestGateway<T>(body: Record<string, unknown>): Promise<T> {
       action,
       errorName: error instanceof Error ? error.name : "UnknownError",
     });
-    throw new Error(
-      "The payment service could not be reached. Please try again shortly. " +
-        "Main payment backend is unavailable or the route is not deployed.",
-    );
+    throw new Error("The wallet payment backend could not be reached. Please try again shortly.");
   }
 
   const result: unknown = await response.json().catch(() => null);
   if (!response.ok || typeof result !== "object" || result === null) {
     const fallbackMessage =
       response.status === 404
-        ? "The main payment backend is not live yet for this site. The wallet API route must be deployed on the main hosting platform."
+        ? "The wallet payment API is missing from the configured backend. Please contact support."
         : response.status === 401
           ? "Your session is invalid or has expired. Please sign in again."
           : response.status === 403
             ? "This payment request is blocked by the site’s security settings."
-            : "Payment request failed. Please try again.";
+            : response.status >= 500
+              ? "Wallet payments are temporarily unavailable. Please try again later."
+              : "Payment request failed. Please try again.";
 
     const message =
       typeof result === "object" &&
@@ -82,9 +81,50 @@ export type TopupVerification = {
 };
 
 export function startWalletTopup(amount: number) {
-  return requestGateway<TopupStart>({ action: "initialize", amount });
+  return requestGateway<unknown>({ action: "initialize", amount }).then((result) => {
+    if (
+      typeof result !== "object" ||
+      result === null ||
+      !("reference" in result) ||
+      typeof result.reference !== "string" ||
+      !("authorizationUrl" in result) ||
+      typeof result.authorizationUrl !== "string" ||
+      !("amount" in result) ||
+      typeof result.amount !== "number" ||
+      !Number.isFinite(result.amount)
+    ) {
+      throw new Error("The payment backend returned an invalid checkout response.");
+    }
+    let checkoutUrl: URL;
+    try {
+      checkoutUrl = new URL(result.authorizationUrl);
+    } catch {
+      throw new Error("The payment backend returned an invalid checkout URL.");
+    }
+    if (checkoutUrl.protocol !== "https:" || checkoutUrl.hostname !== "checkout.paystack.com") {
+      throw new Error("The payment backend returned an unsupported checkout URL.");
+    }
+    return {
+      reference: result.reference,
+      authorizationUrl: checkoutUrl.toString(),
+      amount: result.amount,
+    };
+  });
 }
 
 export function verifyWalletTopup(reference: string) {
-  return requestGateway<TopupVerification>({ action: "verify", reference });
+  return requestGateway<unknown>({ action: "verify", reference }).then((result) => {
+    if (
+      typeof result !== "object" ||
+      result === null ||
+      !("status" in result) ||
+      typeof result.status !== "string" ||
+      !("amount" in result) ||
+      typeof result.amount !== "number" ||
+      !Number.isFinite(result.amount)
+    ) {
+      throw new Error("The payment backend returned an invalid verification response.");
+    }
+    return result as TopupVerification;
+  });
 }

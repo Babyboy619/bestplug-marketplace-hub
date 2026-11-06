@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import { render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Route } from "@/routes/wallet";
 
@@ -32,6 +32,8 @@ const item = {
 const mocks = vi.hoisted(() => ({
   rpc: vi.fn(),
   from: vi.fn(),
+  startWalletTopup: vi.fn(),
+  verifyWalletTopup: vi.fn(),
   user: { id: "00000000-0000-4000-8000-000000000009", email: "buyer@example.test" },
 }));
 
@@ -39,10 +41,17 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: mocks }));
 vi.mock("@/hooks/use-auth-user", () => ({
   useAuthUser: () => ({ user: mocks.user, loading: false }),
 }));
-vi.mock("@tanstack/react-start", () => ({ useServerFn: () => vi.fn() }));
+vi.mock("@tanstack/react-start", () => ({
+  useServerFn: () => vi.fn(),
+  createClientOnlyFn: (callback: unknown) => callback,
+}));
 vi.mock("@/lib/paystark.functions", () => ({
   startPaystarkTopup: vi.fn(),
   verifyPaystarkTopup: vi.fn(),
+}));
+vi.mock("@/lib/paystark.client", () => ({
+  startWalletTopup: mocks.startWalletTopup,
+  verifyWalletTopup: mocks.verifyWalletTopup,
 }));
 vi.mock("@tanstack/react-router", () => ({
   createFileRoute: () => (options: unknown) => ({ options }),
@@ -66,6 +75,8 @@ function query(data: unknown) {
 
 describe("customer wallet orders", () => {
   beforeEach(() => {
+    mocks.startWalletTopup.mockReset();
+    mocks.verifyWalletTopup.mockReset();
     mocks.rpc.mockReset().mockResolvedValue({
       data: [{ id: "wallet", balance: 7500, currency: "NGN", updated_at: order.created_at }],
       error: null,
@@ -92,5 +103,28 @@ describe("customer wallet orders", () => {
     expect(screen.getByText("Region")).toBeInTheDocument();
     expect(screen.getByText("West Africa")).toBeInTheDocument();
     expect(screen.getByText("Sign in before use.")).toBeInTheDocument();
+  });
+
+  it("locks duplicate top-up submissions and shows initialization errors", async () => {
+    let rejectStart: (error: Error) => void = () => {};
+    mocks.startWalletTopup.mockReturnValue(
+      new Promise((_, reject) => {
+        rejectStart = reject;
+      }),
+    );
+    const WalletPage = Route.options.component as ComponentType;
+    render(<WalletPage />);
+
+    const button = await screen.findByRole("button", { name: "Continue to Paystack" });
+    const form = button.closest("form");
+    if (!form) throw new Error("Wallet funding form was not rendered.");
+
+    fireEvent.submit(form);
+    fireEvent.submit(form);
+    await waitFor(() => expect(mocks.startWalletTopup).toHaveBeenCalledTimes(1));
+
+    await act(async () => rejectStart(new Error("Paystack server credentials are missing.")));
+    expect(await screen.findByText("Paystack server credentials are missing.")).toBeInTheDocument();
+    expect(button).not.toBeDisabled();
   });
 });

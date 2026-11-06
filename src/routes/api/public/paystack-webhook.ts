@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { getPaystarkConfig } from "@/lib/paystark.server";
 
 const MAX_BODY_BYTES = 262_144;
 
@@ -10,8 +11,15 @@ export const Route = createFileRoute("/api/public/paystack-webhook")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const secret = process.env["PAYSTARK_SECRET_KEY"];
-        if (!secret) return new Response("Unavailable", { status: 503 });
+        let config: ReturnType<typeof getPaystarkConfig>;
+        try {
+          config = getPaystarkConfig();
+        } catch (error) {
+          console.error("[paystack-webhook] configuration unavailable", {
+            errorName: error instanceof Error ? error.name : "UnknownError",
+          });
+          return new Response("Unavailable", { status: 503 });
+        }
 
         const contentLength = request.headers.get("content-length");
         if (contentLength && Number(contentLength) > MAX_BODY_BYTES) {
@@ -25,7 +33,7 @@ export const Route = createFileRoute("/api/public/paystack-webhook")({
 
         const { validSignature, settleVerified } = await import("@/lib/paystack.server");
         const signature = request.headers.get("x-paystack-signature") ?? "";
-        if (!(await validSignature(body, signature, secret))) {
+        if (!(await validSignature(body, signature, config.secretKey))) {
           return new Response("Invalid signature", { status: 401 });
         }
 
@@ -49,13 +57,13 @@ export const Route = createFileRoute("/api/public/paystack-webhook")({
         }
 
         try {
-          await settleVerified(
-            reference,
-            secret,
-            process.env["PAYSTARK_BASE_URL"] ?? "https://api.paystack.co",
-          );
+          await settleVerified(reference, config.secretKey, config.baseUrl);
           return new Response("OK");
-        } catch {
+        } catch (error) {
+          console.error("[paystack-webhook] settlement failed", {
+            reference,
+            errorName: error instanceof Error ? error.name : "UnknownError",
+          });
           return new Response("Verification failed", { status: 503 });
         }
       },

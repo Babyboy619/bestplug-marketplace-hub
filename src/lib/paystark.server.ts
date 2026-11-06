@@ -4,6 +4,8 @@ type ProviderEnvelope = {
   data?: Record<string, unknown>;
 };
 
+const DEFAULT_PAYSTACK_BASE_URL = "https://api.paystack.co";
+
 export type PaystarkConfig = {
   secretKey: string;
   baseUrl: string;
@@ -18,24 +20,32 @@ export type PaystarkVerification = {
   payload: Record<string, unknown>;
 };
 
-export function getPaystarkConfig(): PaystarkConfig {
-  const secretKey = process.env["PAYSTARK_SECRET_KEY"];
-  const configuredBase = process.env["PAYSTARK_BASE_URL"] || "https://api.paystack.co";
-  let baseUrl: URL;
+export function getPaystarkConfigStatus() {
+  const secretConfigured = Boolean(process.env["PAYSTARK_SECRET_KEY"]?.trim());
+  const configuredBase = process.env["PAYSTARK_BASE_URL"]?.trim() || DEFAULT_PAYSTACK_BASE_URL;
+  let apiUrlConfigured = false;
   try {
-    baseUrl = new URL(configuredBase);
+    const baseUrl = new URL(configuredBase);
+    apiUrlConfigured =
+      baseUrl.href === `${DEFAULT_PAYSTACK_BASE_URL}/` && !baseUrl.username && !baseUrl.password;
   } catch {
-    throw new Error("Paystack payment configuration is invalid.");
+    apiUrlConfigured = false;
   }
-  if (
-    !secretKey ||
-    baseUrl.protocol !== "https:" ||
-    baseUrl.hostname !== "api.paystack.co" ||
-    baseUrl.pathname !== "/"
-  ) {
-    throw new Error("Payments are not available right now. Please try again later.");
+  return { secretConfigured, apiUrlConfigured, configured: secretConfigured && apiUrlConfigured };
+}
+
+export function getPaystarkConfig(): PaystarkConfig {
+  const status = getPaystarkConfigStatus();
+  const secretKey = process.env["PAYSTARK_SECRET_KEY"]?.trim();
+  if (!status.secretConfigured || !secretKey) {
+    throw new Error("Paystack server credentials are missing. Configure PAYSTARK_SECRET_KEY.");
   }
-  return { secretKey, baseUrl: baseUrl.origin };
+  if (!status.apiUrlConfigured) {
+    throw new Error(
+      "Paystack API URL is invalid. Configure PAYSTARK_BASE_URL as https://api.paystack.co.",
+    );
+  }
+  return { secretKey, baseUrl: DEFAULT_PAYSTACK_BASE_URL };
 }
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
@@ -48,6 +58,7 @@ async function paystarkRequest(
   method: "GET" | "POST",
   body?: Record<string, unknown>,
 ): Promise<ProviderEnvelope> {
+  const operation = path.startsWith("transaction/initialize") ? "initialize" : "verify";
   let response: Response;
   try {
     response = await fetch(`${config.baseUrl}/${path.replace(/^\/+/, "")}`, {
@@ -60,11 +71,21 @@ async function paystarkRequest(
       ...(method === "POST" ? { body: JSON.stringify(body ?? {}) } : {}),
       signal: AbortSignal.timeout(15_000),
     });
-  } catch {
+  } catch (error) {
+    console.error("[paystack] provider connection failed", {
+      operation,
+      errorName: error instanceof Error ? error.name : "UnknownError",
+    });
     throw new Error("Paystack could not be reached. Please try again shortly.");
   }
   const payload: unknown = await response.json().catch(() => null);
   if (!response.ok || !isRecord(payload) || payload["status"] !== true) {
+    console.error("[paystack] provider rejected request", { operation, status: response.status });
+    if (response.status === 401 || response.status === 403) {
+      throw new Error(
+        "Paystack rejected the configured server credentials. Check PAYSTARK_SECRET_KEY.",
+      );
+    }
     throw new Error("Paystack could not process the request. Please try again shortly.");
   }
   return payload as ProviderEnvelope;

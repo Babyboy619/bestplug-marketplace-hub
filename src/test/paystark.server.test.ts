@@ -163,8 +163,30 @@ describe("Paystack server adapter", () => {
     vi.stubEnv("PAYSTARK_BASE_URL", "https://api.paystack.co");
 
     expect(() => getPaystarkConfig()).toThrow(
-      "Payments are not available right now. Please try again later.",
+      "Paystack server credentials are missing. Configure PAYSTARK_SECRET_KEY.",
     );
+  });
+
+  it("rejects a non-production Paystack API URL", () => {
+    vi.stubEnv("PAYSTARK_SECRET_KEY", "test_secret_key");
+    vi.stubEnv("PAYSTARK_BASE_URL", "https://example.test");
+
+    expect(() => getPaystarkConfig()).toThrow(
+      "Paystack API URL is invalid. Configure PAYSTARK_BASE_URL as https://api.paystack.co.",
+    );
+  });
+
+  it("reports invalid provider credentials without exposing the secret", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("{}", { status: 401 })));
+
+    await expect(
+      initializePaystarkTransaction(config, {
+        email: "customer@example.test",
+        amountMinor: 12500,
+        reference: "ps-test-reference",
+        callbackUrl: "https://market.example.test/payments/callback",
+      }),
+    ).rejects.toThrow("Paystack rejected the configured server credentials");
   });
 
   it("validates the provider webhook HMAC with SHA-512", async () => {
