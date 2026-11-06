@@ -5,13 +5,26 @@ import {
 } from "@/lib/paystark.server";
 import { paymentReferenceSchema, topupAmountSchema } from "@/lib/payment-validation";
 
-function errorCode(error: unknown) {
-  return typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    typeof error.code === "string"
-    ? error.code
-    : "unknown";
+function errorField(error: unknown, field: "code" | "message" | "details" | "hint") {
+  if (typeof error !== "object" || error === null || !(field in error)) return null;
+  const value = (error as Record<string, unknown>)[field];
+  if (typeof value !== "string") return null;
+  return value
+    .slice(0, 2000)
+    .replace(/Bearer\s+[^\s]+/gi, "Bearer [REDACTED]")
+    .replace(/\b(?:sk|pk)_(?:test|live)_[A-Za-z0-9]+\b/g, "[REDACTED]")
+    .replace(/\bsb_(?:secret|publishable)_[A-Za-z0-9_-]+\b/g, "[REDACTED]");
+}
+
+function logDatabaseFailure(operationStage: string, reference: string, error: unknown) {
+  console.error("[wallet-payments] database operation failed", {
+    operationStage,
+    reference,
+    code: errorField(error, "code"),
+    message: errorField(error, "message"),
+    details: errorField(error, "details"),
+    hint: errorField(error, "hint"),
+  });
 }
 
 function toMinorUnits(amount: number) {
@@ -41,10 +54,7 @@ export async function initializeWalletTopup(input: {
     });
     if (intentError) throw intentError;
   } catch (error) {
-    console.error("[wallet-payments] intent creation failed", {
-      reference,
-      errorCode: errorCode(error),
-    });
+    logDatabaseFailure("intent_insert", reference, error);
     throw new Error("Your payment could not be recorded. Please try again.");
   }
 
@@ -71,10 +81,7 @@ export async function initializeWalletTopup(input: {
       .select("reference")
       .maybeSingle();
     if (saveError || !savedIntent) {
-      console.error("[wallet-payments] checkout details could not be saved", {
-        reference,
-        errorCode: errorCode(saveError),
-      });
+      logDatabaseFailure("checkout_details_update", reference, saveError);
       throw new Error("The payment checkout could not be saved. Please try again.");
     }
     return { reference, authorizationUrl: checkout.authorizationUrl, amount };
@@ -88,10 +95,7 @@ export async function initializeWalletTopup(input: {
       .select("reference")
       .maybeSingle();
     if (failureUpdateError || !failedIntent) {
-      console.error("[wallet-payments] failed intent could not be marked", {
-        reference,
-        errorCode: errorCode(failureUpdateError),
-      });
+      logDatabaseFailure("failed_intent_update", reference, failureUpdateError);
     }
     throw error instanceof Error
       ? error

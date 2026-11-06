@@ -119,6 +119,41 @@ describe("wallet Paystack payment service", () => {
     expect(query.update).toHaveBeenCalledWith(expect.objectContaining({ status: "failed" }));
   });
 
+  it("logs database diagnostics privately when intent insertion fails", async () => {
+    const query = makeQuery();
+    const databaseError = {
+      code: "23503",
+      message: "insert or update violates foreign key constraint",
+      details: "Key (user_id) is not present in table profiles.",
+      hint: "Check the profile record.",
+    };
+    query.insert.mockResolvedValue({ error: databaseError });
+    mocks.from.mockReturnValue(query);
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await expect(
+      initializeWalletTopup({
+        userId: "user-1",
+        email: "customer@example.test",
+        amount: 1000,
+        callbackUrl: "https://bestplugmarketplace.shop/payments/callback",
+      }),
+    ).rejects.toThrow("Your payment could not be recorded. Please try again.");
+
+    expect(errorLog).toHaveBeenCalledWith(
+      "[wallet-payments] database operation failed",
+      expect.objectContaining({
+        operationStage: "intent_insert",
+        code: "23503",
+        message: databaseError.message,
+        details: databaseError.details,
+        hint: databaseError.hint,
+      }),
+    );
+    expect(errorLog.mock.calls[0]?.[1]).toHaveProperty("reference", expect.stringMatching(/^ps-/));
+    errorLog.mockRestore();
+  });
+
   it("rejects excessive decimal precision and malformed references before database access", async () => {
     await expect(
       initializeWalletTopup({
