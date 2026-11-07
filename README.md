@@ -26,20 +26,37 @@ npm run dev
 The Cloudflare Nitro deployment attaches Worker bindings to each request. Server
 handlers read database and payment configuration from those per-request
 bindings, rather than relying on values captured during the build. Configure
-these existing names in the Cloudflare Worker Variables and Secrets settings:
+these values in the Cloudflare Worker Variables and Secrets settings:
 
 - Variables: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`,
-  `PAYSTARK_BASE_URL`, and `PAYMENT_ALLOWED_ORIGINS`.
-- Secrets: `SUPABASE_SERVICE_ROLE_KEY`, `PAYSTARK_SECRET_KEY`,
-  `NEURAPAY_SECRET_KEY`, `NEURAPAY_BUSINESS_ID`, and
-  `NEURAPAY_WEBHOOK_SECRET` when using NeuraPay.
+  `PAYSTACK_BASE_URL` (set to `https://api.paystack.co`),
+  `PAYMENT_ALLOWED_ORIGINS`, and optionally `PAYSTACK_PUBLIC_KEY`.
+- Secrets: `SUPABASE_SERVICE_ROLE_KEY` and `PAYSTACK_SECRET_KEY`.
 
-Do not add a `VITE_` prefix to privileged keys or commit them to Wrangler
-configuration. If the bindings are already configured, no Cloudflare setting
-changes are needed; deploy the updated application code. The
+The Paystack secret key must be server-only: never use a `VITE_` prefix, expose
+it in a browser response, or commit it to Wrangler configuration. The public
+key is not required by the hosted-checkout flow, but can be configured as a
+Worker Variable. If the deployed site is hosted at a different origin, set
+the public build-time variable `VITE_PAYMENT_GATEWAY_URL` to the origin that
+serves `/api/public/wallet-payments`. During migration, the server also accepts the old
+`PAYSTARK_BASE_URL`, `PAYSTARK_PUBLIC_KEY`, and `PAYSTARK_SECRET_KEY` names;
+the corresponding `PAYSTACK_*` variable takes precedence.
+
+In the Paystack Dashboard, open the Webhooks settings for the same test/live
+environment as the configured secret key. Set the webhook URL to
+`https://bestplugmarketplace.shop/api/public/paystack-webhook` and enable the
+`charge.success` event. The previous `/api/public/paystark-webhook` URL remains
+available as a compatibility alias. Paystack signs the raw request body with
+HMAC-SHA512 using the account's secret key; the webhook verifies
+`x-paystack-signature` and then independently verifies each transaction with
+Paystack before settlement. Do not treat a browser callback or frontend
+success message as proof of payment.
+
+If existing Cloudflare bindings use the legacy `PAYSTARK_*` names, they can
+remain in place until the new `PAYSTACK_*` names are configured. The
 `/api/public/payment-health` endpoint reports `databaseStatus` as `ok`,
-`missing_url`, `missing_service_role_key`, or `connection_failed` and never
-returns secret values.
+`missing_url`, `missing_service_role_key`, or `connection_failed` and reports
+payment configuration as booleans only; it never returns secret values.
 
 ## Built with
 

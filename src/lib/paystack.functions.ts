@@ -1,9 +1,14 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { requireActiveAccount } from "@/lib/active-account.middleware";
-import { getServerEnv } from "@/lib/runtime-env.server";
 import { z } from "zod";
 import { paymentAmount } from "./paystack-validation";
+import {
+  getPaystackConfig,
+  initializePaystackTransaction,
+  settleVerified,
+} from "./paystack.server";
+
 export const initializePayment = createServerFn({ method: "POST" })
   .middleware([requireActiveAccount])
   .inputValidator((v) =>
@@ -13,9 +18,7 @@ export const initializePayment = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const request = getRequest();
-    const secret = getServerEnv("PAYSTARK_SECRET_KEY", request);
-    const base = getServerEnv("PAYSTARK_BASE_URL", request) ?? "https://api.paystack.co";
-    if (!secret) throw new Error("PayStark payments are not activated yet. Contact support.");
+    const config = getPaystackConfig(request);
     await context.supabase.rpc("ensure_user_wallet");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const reference = `bp-${data.request}`;
@@ -60,23 +63,24 @@ export const initializePayment = createServerFn({ method: "POST" })
       order_id: orderId,
     });
     if (intent.error) throw new Error("This payment is already processing. Check payment status.");
-    const { gateway } = await import("./paystack.server");
     try {
       const origin = new URL(request.url).origin;
-      const response = await gateway(secret, base, "/transaction/initialize", {
-        email: context.claims.email,
-        amount: Math.round(amount * 100),
-        currency: "NGN",
+      const checkout = await initializePaystackTransaction(config, {
+        email: String(context.claims.email ?? ""),
+        amountMinor: Math.round(amount * 100),
         reference,
-        callback_url: `${origin}/payment-return`,
+        callbackUrl: `${origin}/payment-return`,
       });
-      const url = String(response["authorization_url"] ?? "");
-      if (new URL(url).protocol !== "https:") throw new Error("Invalid checkout URL");
-      await supabaseAdmin
+      const { error: saveError } = await supabaseAdmin
         .from("payment_intents")
-        .update({ raw: { authorization_url: url } })
+        .update({
+          provider_reference: checkout.accessCode,
+          raw: { authorization_url: checkout.authorizationUrl },
+          updated_at: new Date().toISOString(),
+        })
         .eq("reference", reference);
-      return { url, reference };
+      if (saveError) throw new Error("The payment checkout could not be saved. Please try again.");
+      return { url: checkout.authorizationUrl, reference };
     } catch (error) {
       throw new Error(
         error instanceof Error
@@ -97,12 +101,5 @@ export const verifyPayment = createServerFn({ method: "POST" })
       .eq("user_id", context.userId)
       .maybeSingle();
     if (!intent) throw new Error("Payment not found for your account");
-    const secret = getServerEnv("PAYSTARK_SECRET_KEY", request);
-    if (!secret) throw new Error("Payments are not activated yet");
-    const { settleVerified } = await import("./paystack.server");
-    return settleVerified(
-      data.reference,
-      secret,
-      getServerEnv("PAYSTARK_BASE_URL", request) ?? "https://api.paystack.co",
-    );
+    return settleVerified(data.reference, getPaystackConfig(request));
   });

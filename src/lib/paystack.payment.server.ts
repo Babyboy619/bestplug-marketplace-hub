@@ -1,8 +1,8 @@
 import {
-  getPaystarkConfig,
-  initializePaystarkTransaction,
-  verifyPaystarkTransaction,
-} from "@/lib/paystark.server";
+  getPaystackConfig,
+  initializePaystackTransaction,
+  verifyPaystackTransaction,
+} from "@/lib/paystack.server";
 import { paymentReferenceSchema, topupAmountSchema } from "@/lib/payment-validation";
 
 function errorField(error: unknown, field: "code" | "message" | "details" | "hint") {
@@ -40,7 +40,7 @@ export async function initializeWalletTopup(input: {
   const amount = topupAmountSchema.parse({ amount: input.amount }).amount;
   const email = input.email.trim();
   if (!email) throw new Error("Your account needs a verified email to start payment.");
-  const config = getPaystarkConfig();
+  const config = getPaystackConfig();
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const reference = `ps-${crypto.randomUUID()}`;
   try {
@@ -59,7 +59,7 @@ export async function initializeWalletTopup(input: {
   }
 
   try {
-    const checkout = await initializePaystarkTransaction(config, {
+    const checkout = await initializePaystackTransaction(config, {
       email,
       amountMinor: toMinorUnits(amount),
       reference,
@@ -119,8 +119,8 @@ export async function verifyWalletTopup(reference: string, userId: string) {
   }
   if (intent.status !== "pending") return { status: intent.status, amount: Number(intent.amount) };
 
-  const checked = await verifyPaystarkTransaction(
-    getPaystarkConfig(),
+  const checked = await verifyPaystackTransaction(
+    getPaystackConfig(),
     intent.reference,
     toMinorUnits(Number(intent.amount)),
   );

@@ -1,19 +1,21 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  getPaystarkConfig,
-  initializePaystarkTransaction,
-  verifyPaystarkTransaction,
-  verifyPaystarkWebhookSignature,
-  type PaystarkConfig,
-} from "@/lib/paystark.server";
+  getPaystackConfig,
+  getPaystackConfigStatus,
+  initializePaystackTransaction,
+  verifyPaystackTransaction,
+  verifyPaystackWebhookSignature,
+  type PaystackConfig,
+} from "@/lib/paystack.server";
 
-const config: PaystarkConfig = {
+const config: PaystackConfig = {
   secretKey: "test_secret_key",
   baseUrl: "https://api.paystack.co",
 };
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
 });
 
 describe("Paystack server adapter", () => {
@@ -33,7 +35,7 @@ describe("Paystack server adapter", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await initializePaystarkTransaction(config, {
+    const result = await initializePaystackTransaction(config, {
       email: "customer@example.test",
       amountMinor: 12500,
       reference: "ps-test-reference",
@@ -71,7 +73,7 @@ describe("Paystack server adapter", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(
-      verifyPaystarkTransaction(config, "ps-test-reference", 12500),
+      verifyPaystackTransaction(config, "ps-test-reference", 12500),
     ).resolves.toMatchObject({
       confirmed: true,
       pending: false,
@@ -80,10 +82,14 @@ describe("Paystack server adapter", () => {
       providerReference: "9",
     });
     await expect(
-      verifyPaystarkTransaction(config, "ps-test-reference", 12501),
+      verifyPaystackTransaction(config, "ps-test-reference", 12501),
     ).resolves.toMatchObject({
       confirmed: false,
     });
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "https://api.paystack.co/transaction/verify/ps-test-reference",
+      expect.objectContaining({ method: "GET" }),
+    );
   });
 
   it.each([
@@ -136,7 +142,7 @@ describe("Paystack server adapter", () => {
     );
 
     await expect(
-      verifyPaystarkTransaction(config, "ps-test-reference", 12500),
+      verifyPaystackTransaction(config, "ps-test-reference", 12500),
     ).resolves.toMatchObject({ confirmed: false, pending });
   });
 
@@ -153,26 +159,47 @@ describe("Paystack server adapter", () => {
         ),
     );
 
-    await expect(verifyPaystarkTransaction(config, "invalid-reference", 12500)).rejects.toThrow(
+    await expect(verifyPaystackTransaction(config, "invalid-reference", 12500)).rejects.toThrow(
       "Paystack could not process the request",
     );
   });
 
   it("rejects a deployment without the server-side payment secret with an actionable message", async () => {
-    vi.stubEnv("PAYSTARK_SECRET_KEY", "");
-    vi.stubEnv("PAYSTARK_BASE_URL", "https://api.paystack.co");
+    vi.stubEnv("PAYSTACK_SECRET_KEY", "");
+    vi.stubEnv("PAYSTACK_BASE_URL", "https://api.paystack.co");
 
-    expect(() => getPaystarkConfig()).toThrow(
-      "Paystack server credentials are missing. Configure PAYSTARK_SECRET_KEY.",
+    expect(() => getPaystackConfig()).toThrow(
+      "Paystack server credentials are missing. Configure PAYSTACK_SECRET_KEY.",
     );
   });
 
-  it("rejects a non-production Paystack API URL", () => {
-    vi.stubEnv("PAYSTARK_SECRET_KEY", "test_secret_key");
-    vi.stubEnv("PAYSTARK_BASE_URL", "https://example.test");
+  it("accepts legacy deployed variable names and prefers new Paystack names", () => {
+    vi.stubEnv("PAYSTACK_SECRET_KEY", "");
+    vi.stubEnv("PAYSTACK_BASE_URL", "");
+    vi.stubEnv("PAYSTARK_SECRET_KEY", "legacy-secret");
+    vi.stubEnv("PAYSTARK_BASE_URL", "https://api.paystack.co");
+    vi.stubEnv("PAYSTARK_PUBLIC_KEY", "legacy-public");
 
-    expect(() => getPaystarkConfig()).toThrow(
-      "Paystack API URL is invalid. Configure PAYSTARK_BASE_URL as https://api.paystack.co.",
+    expect(getPaystackConfig()).toMatchObject({
+      secretKey: "legacy-secret",
+      baseUrl: "https://api.paystack.co",
+    });
+    expect(getPaystackConfigStatus()).toMatchObject({
+      secretConfigured: true,
+      publicConfigured: true,
+      apiUrlConfigured: true,
+    });
+
+    vi.stubEnv("PAYSTACK_SECRET_KEY", "new-secret");
+    expect(getPaystackConfig().secretKey).toBe("new-secret");
+  });
+
+  it("rejects a non-production Paystack API URL", () => {
+    vi.stubEnv("PAYSTACK_SECRET_KEY", "test_secret_key");
+    vi.stubEnv("PAYSTACK_BASE_URL", "https://example.test");
+
+    expect(() => getPaystackConfig()).toThrow(
+      "Paystack API URL is invalid. Configure PAYSTACK_BASE_URL as https://api.paystack.co.",
     );
   });
 
@@ -180,7 +207,7 @@ describe("Paystack server adapter", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("{}", { status: 401 })));
 
     await expect(
-      initializePaystarkTransaction(config, {
+      initializePaystackTransaction(config, {
         email: "customer@example.test",
         amountMinor: 12500,
         reference: "ps-test-reference",
@@ -206,9 +233,9 @@ describe("Paystack server adapter", () => {
       "",
     );
 
-    await expect(verifyPaystarkWebhookSignature(rawBody, signatureHex, secret)).resolves.toBe(true);
+    await expect(verifyPaystackWebhookSignature(rawBody, signatureHex, secret)).resolves.toBe(true);
     await expect(
-      verifyPaystarkWebhookSignature(rawBody, signatureHex, "wrong_secret"),
+      verifyPaystackWebhookSignature(rawBody, signatureHex, "wrong_secret"),
     ).resolves.toBe(false);
   });
 });

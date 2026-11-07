@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import type { Database } from "@/integrations/supabase/types";
-import { initializeWalletTopup, verifyWalletTopup } from "@/lib/paystark.payment.server";
+import { initializeWalletTopup, verifyWalletTopup } from "@/lib/paystack.payment.server";
 import { paymentReferenceSchema, topupAmountSchema } from "@/lib/payment-validation";
 import { getServerEnv } from "@/lib/runtime-env.server";
 

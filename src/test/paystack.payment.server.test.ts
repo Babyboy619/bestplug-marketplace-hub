@@ -1,25 +1,29 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { settleVerified } from "@/lib/paystack.server";
 
 const mocks = vi.hoisted(() => ({
   from: vi.fn(),
   rpc: vi.fn(),
-  getPaystarkConfig: vi.fn(),
-  initializePaystarkTransaction: vi.fn(),
-  verifyPaystarkTransaction: vi.fn(),
+  getPaystackConfig: vi.fn(),
+  initializePaystackTransaction: vi.fn(),
+  verifyPaystackTransaction: vi.fn(),
 }));
 
 vi.mock("@/integrations/supabase/client.server", () => ({
   supabaseAdmin: { from: mocks.from, rpc: mocks.rpc },
 }));
 
-vi.mock("@/lib/paystark.server", () => ({
-  getPaystarkConfig: mocks.getPaystarkConfig,
-  initializePaystarkTransaction: mocks.initializePaystarkTransaction,
-  verifyPaystarkTransaction: mocks.verifyPaystarkTransaction,
-}));
+vi.mock("@/lib/paystack.server", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/paystack.server")>();
+  return {
+    ...actual,
+    getPaystackConfig: mocks.getPaystackConfig,
+    initializePaystackTransaction: mocks.initializePaystackTransaction,
+    verifyPaystackTransaction: mocks.verifyPaystackTransaction,
+  };
+});
 
-import { initializeWalletTopup, verifyWalletTopup } from "@/lib/paystark.payment.server";
+import { initializeWalletTopup, verifyWalletTopup } from "@/lib/paystack.payment.server";
 
 const config = { secretKey: "test_secret_key", baseUrl: "https://api.paystack.co" };
 const intent = {
@@ -45,13 +49,13 @@ function makeQuery(data: unknown = { reference: intent.reference }) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.getPaystarkConfig.mockReturnValue(config);
-  mocks.initializePaystarkTransaction.mockResolvedValue({
+  mocks.getPaystackConfig.mockReturnValue(config);
+  mocks.initializePaystackTransaction.mockResolvedValue({
     authorizationUrl: "https://checkout.paystack.com/test-code",
     accessCode: "test-code",
     reference: intent.reference,
   });
-  mocks.verifyPaystarkTransaction.mockResolvedValue({
+  mocks.verifyPaystackTransaction.mockResolvedValue({
     confirmed: true,
     pending: false,
     amountMinor: 100000,
@@ -60,6 +64,10 @@ beforeEach(() => {
     payload: {},
   });
   mocks.rpc.mockResolvedValue({ data: null, error: null });
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
 describe("wallet Paystack payment service", () => {
@@ -88,7 +96,7 @@ describe("wallet Paystack payment service", () => {
         status: "pending",
       }),
     );
-    expect(mocks.initializePaystarkTransaction).toHaveBeenCalledWith(
+    expect(mocks.initializePaystackTransaction).toHaveBeenCalledWith(
       config,
       expect.objectContaining({ email: "customer@example.test", amountMinor: 100000 }),
     );
@@ -105,7 +113,7 @@ describe("wallet Paystack payment service", () => {
   it("marks an intent failed when Paystack initialization fails", async () => {
     const query = makeQuery();
     mocks.from.mockReturnValue(query);
-    mocks.initializePaystarkTransaction.mockRejectedValue(new Error("invalid credentials"));
+    mocks.initializePaystackTransaction.mockRejectedValue(new Error("invalid credentials"));
 
     await expect(
       initializeWalletTopup({
@@ -177,7 +185,7 @@ describe("wallet Paystack payment service", () => {
       amount: 1000,
       alreadyCredited: false,
     });
-    expect(mocks.verifyPaystarkTransaction).toHaveBeenCalledWith(config, intent.reference, 100000);
+    expect(mocks.verifyPaystackTransaction).toHaveBeenCalledWith(config, intent.reference, 100000);
     expect(mocks.rpc).toHaveBeenCalledWith("settle_paystack", {
       _reference: intent.reference,
       _amount: 1000,
@@ -186,7 +194,48 @@ describe("wallet Paystack payment service", () => {
     });
   });
 
-  it("does not settle a previously credited intent again", async () => {
+  it.each([
+    {
+      name: "failed transaction",
+      checked: { confirmed: false, pending: false, amountMinor: 100000, currency: "NGN" },
+      error: "Payment was not confirmed.",
+    },
+    {
+      name: "wrong payment amount",
+      checked: { confirmed: false, pending: false, amountMinor: 99999, currency: "NGN" },
+      error: "Payment amount did not match.",
+    },
+    {
+      name: "wrong payment currency",
+      checked: { confirmed: false, pending: false, amountMinor: 100000, currency: "USD" },
+      error: "Payment currency did not match.",
+    },
+    {
+      name: "wrong payment reference",
+      checked: { confirmed: false, pending: false, amountMinor: 100000, currency: "NGN" },
+      error: "Payment was not confirmed.",
+    },
+  ])("does not credit a wallet for $name", async ({ checked, error }) => {
+    const query = makeQuery(intent);
+    query.maybeSingle
+      .mockResolvedValueOnce({ data: intent, error: null })
+      .mockResolvedValueOnce({ data: { ...intent, status: "failed" }, error: null });
+    mocks.from.mockReturnValue(query);
+    mocks.verifyPaystackTransaction.mockResolvedValue({
+      ...checked,
+      providerReference: "12345",
+      payload: {},
+    });
+
+    await expect(verifyWalletTopup(intent.reference, "user-1")).resolves.toMatchObject({
+      status: "failed",
+      error,
+    });
+    expect(mocks.rpc).toHaveBeenCalledWith("fail_paystack", { _reference: intent.reference });
+    expect(mocks.rpc).not.toHaveBeenCalledWith("settle_paystack", expect.anything());
+  });
+
+  it("credits the wallet exactly once when callback verification repeats", async () => {
     const query = makeQuery(intent);
     query.maybeSingle
       .mockResolvedValueOnce({ data: intent, error: null })
@@ -201,7 +250,7 @@ describe("wallet Paystack payment service", () => {
     });
 
     expect(mocks.rpc).toHaveBeenCalledTimes(1);
-    expect(mocks.verifyPaystarkTransaction).toHaveBeenCalledTimes(1);
+    expect(mocks.verifyPaystackTransaction).toHaveBeenCalledTimes(1);
   });
 
   it("acknowledges duplicate webhook delivery for an already successful intent", async () => {
@@ -210,18 +259,60 @@ describe("wallet Paystack payment service", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(
-      settleVerified(intent.reference, "test_secret_key", "https://api.paystack.co"),
-    ).resolves.toMatchObject({ success: true, status: "success" });
+    await expect(settleVerified(intent.reference, config)).resolves.toMatchObject({
+      success: true,
+      status: "success",
+    });
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(mocks.rpc).not.toHaveBeenCalled();
   });
 
+  it("settles duplicate webhook verification only once", async () => {
+    const query = makeQuery(intent);
+    query.maybeSingle
+      .mockResolvedValueOnce({ data: { ...intent, order_id: null }, error: null })
+      .mockResolvedValueOnce({
+        data: { ...intent, status: "success", order_id: null },
+        error: null,
+      });
+    mocks.from.mockReturnValue(query);
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          status: true,
+          data: {
+            status: "success",
+            reference: intent.reference,
+            amount: 100000,
+            currency: "NGN",
+            id: 12345,
+          },
+        }),
+        { status: 200 },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(settleVerified(intent.reference, config)).resolves.toMatchObject({
+      success: true,
+    });
+    await expect(settleVerified(intent.reference, config)).resolves.toMatchObject({
+      success: true,
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(mocks.rpc).toHaveBeenCalledTimes(1);
+    expect(mocks.rpc).toHaveBeenCalledWith("settle_paystack", {
+      _reference: intent.reference,
+      _amount: 1000,
+      _currency: "NGN",
+      _provider_id: "12345",
+    });
+  });
+
   it("rejects malformed webhook references before querying the database", async () => {
-    await expect(
-      settleVerified("bad", "test_secret_key", "https://api.paystack.co"),
-    ).rejects.toThrow();
+    await expect(settleVerified("bad", config)).rejects.toThrow();
     expect(mocks.from).not.toHaveBeenCalled();
   });
 });

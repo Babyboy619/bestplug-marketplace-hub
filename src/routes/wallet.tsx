@@ -13,12 +13,12 @@ import { siteConfig } from "@/lib/site-config";
 import type { Database } from "@/integrations/supabase/types";
 
 const startWalletTopup = createClientOnlyFn(async (amount: number) => {
-  const { startWalletTopup: start } = await import("@/lib/paystark.client");
+  const { startWalletTopup: start } = await import("@/lib/paystack.client");
   return start(amount);
 });
 
 const verifyWalletTopup = createClientOnlyFn(async (reference: string) => {
-  const { verifyWalletTopup: verify } = await import("@/lib/paystark.client");
+  const { verifyWalletTopup: verify } = await import("@/lib/paystack.client");
   return verify(reference);
 });
 
@@ -282,7 +282,7 @@ function WalletPage() {
                   >
                     <div>
                       <p>
-                        {tx.description?.replace(/PayStark/gi, "Paystack") ?? "Wallet transaction"}
+                        {tx.description?.replace(/Paystark/gi, "Paystack") ?? "Wallet transaction"}
                       </p>
                       <p className="mt-1 text-xs text-muted-foreground">
                         {new Date(tx.created_at).toLocaleDateString()} · {tx.status}

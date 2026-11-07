@@ -45,11 +45,11 @@ vi.mock("@tanstack/react-start", () => ({
   useServerFn: () => vi.fn(),
   createClientOnlyFn: (callback: unknown) => callback,
 }));
-vi.mock("@/lib/paystark.functions", () => ({
-  startPaystarkTopup: vi.fn(),
-  verifyPaystarkTopup: vi.fn(),
+vi.mock("@/lib/paystack.wallet.functions", () => ({
+  startPaystackTopup: vi.fn(),
+  verifyPaystackTopup: vi.fn(),
 }));
-vi.mock("@/lib/paystark.client", () => ({
+vi.mock("@/lib/paystack.client", () => ({
   startWalletTopup: mocks.startWalletTopup,
   verifyWalletTopup: mocks.verifyWalletTopup,
 }));

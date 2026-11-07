@@ -79,8 +79,8 @@ describe("wallet payment production routes", () => {
   });
 
   it("reports missing server credentials without returning secret values", async () => {
-    vi.stubEnv("PAYSTARK_SECRET_KEY", "");
-    vi.stubEnv("PAYSTARK_BASE_URL", "https://api.paystack.co");
+    vi.stubEnv("PAYSTACK_SECRET_KEY", "");
+    vi.stubEnv("PAYSTACK_BASE_URL", "https://api.paystack.co");
     vi.stubEnv("SUPABASE_URL", "");
     vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "");
 
@@ -99,6 +99,7 @@ describe("wallet payment production routes", () => {
       paymentInitializationRoute: "available",
       paymentVerificationRoute: "available",
       paystackSecretConfigured: false,
+      paystackPublicKeyConfigured: false,
       paystackApiUrlConfigured: true,
       databaseUrlConfigured: false,
       databaseServiceRoleConfigured: false,
@@ -122,8 +123,9 @@ describe("wallet payment production routes", () => {
         SUPABASE_URL: "https://database.example.test",
         SUPABASE_SERVICE_ROLE_KEY: "runtime-service-role-secret",
         SUPABASE_PUBLISHABLE_KEY: "runtime-publishable-key",
-        PAYSTARK_SECRET_KEY: "runtime-paystack-secret",
-        PAYSTARK_BASE_URL: "https://api.paystack.co",
+        PAYSTACK_SECRET_KEY: "runtime-paystack-secret",
+        PAYSTACK_PUBLIC_KEY: "runtime-paystack-public",
+        PAYSTACK_BASE_URL: "https://api.paystack.co",
       },
     );
 
@@ -139,6 +141,7 @@ describe("wallet payment production routes", () => {
       databaseUrlConfigured: true,
       databaseServiceRoleConfigured: true,
       paystackSecretConfigured: true,
+      paystackPublicKeyConfigured: true,
     });
     expect(JSON.stringify(body)).not.toContain("runtime-service-role-secret");
     expect(JSON.stringify(body)).not.toContain("runtime-paystack-secret");
@@ -161,8 +164,8 @@ describe("wallet payment production routes", () => {
         SUPABASE_URL: "https://database.example.test",
         SUPABASE_SERVICE_ROLE_KEY: "runtime-service-role-secret",
         SUPABASE_PUBLISHABLE_KEY: "runtime-publishable-key",
-        PAYSTARK_SECRET_KEY: "runtime-paystack-secret",
-        PAYSTARK_BASE_URL: "https://api.paystack.co",
+        PAYSTACK_SECRET_KEY: "runtime-paystack-secret",
+        PAYSTACK_BASE_URL: "https://api.paystack.co",
       },
     );
 
@@ -184,8 +187,8 @@ describe("wallet payment production routes", () => {
       {
         SUPABASE_URL: "https://database.example.test",
         SUPABASE_PUBLISHABLE_KEY: "runtime-publishable-key",
-        PAYSTARK_SECRET_KEY: "runtime-paystack-secret",
-        PAYSTARK_BASE_URL: "https://api.paystack.co",
+        PAYSTACK_SECRET_KEY: "runtime-paystack-secret",
+        PAYSTACK_BASE_URL: "https://api.paystack.co",
       },
     );
 

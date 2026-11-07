@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createSupabaseAdminClient } from "@/integrations/supabase/client.server";
 import { getServerEnv } from "@/lib/runtime-env.server";
-import { getPaystarkConfigStatus } from "@/lib/paystark.server";
+import { getPaystackConfigStatus } from "@/lib/paystack.server";
 
 const MAIN_ORIGIN = "https://bestplug-marketplace-hub.lovable.app";
 const CUSTOM_ORIGIN = "https://bestplugmarketplace.shop";
@@ -38,7 +38,7 @@ export const Route = createFileRoute("/api/public/payment-health")({
           return Response.json({ error: "Origin not allowed." }, { status: 403 });
         }
 
-        const paystack = getPaystarkConfigStatus(request);
+        const paystack = getPaystackConfigStatus(request);
         const supabaseUrl =
           getServerEnv("SUPABASE_URL", request) || import.meta.env["VITE_SUPABASE_URL"];
         const publishableKey =
@@ -83,6 +83,7 @@ export const Route = createFileRoute("/api/public/payment-health")({
           provider: "paystack",
           providerConfigured: paystack.configured,
           paystackSecretConfigured: paystack.secretConfigured,
+          paystackPublicKeyConfigured: paystack.publicConfigured,
           paystackApiUrlConfigured: paystack.apiUrlConfigured,
           authenticationConfigured,
           databaseConfigured,

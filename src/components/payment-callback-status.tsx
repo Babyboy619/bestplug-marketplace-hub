@@ -8,7 +8,7 @@ import { useAuthUser } from "@/hooks/use-auth-user";
 import { useWalletBalance } from "@/hooks/use-wallet-balance";
 
 const verifyWalletTopup = createClientOnlyFn(async (reference: string) => {
-  const { verifyWalletTopup: verify } = await import("@/lib/paystark.client");
+  const { verifyWalletTopup: verify } = await import("@/lib/paystack.client");
   return verify(reference);
 });
 

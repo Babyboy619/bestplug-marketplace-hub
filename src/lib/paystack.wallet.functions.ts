@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { topupAmountSchema } from "@/lib/payment-validation";
 import { requireActiveAccount } from "@/lib/active-account.middleware";
-import { initializeWalletTopup, verifyWalletTopup } from "@/lib/paystark.payment.server";
+import { initializeWalletTopup, verifyWalletTopup } from "@/lib/paystack.payment.server";
 import { z } from "zod";
 
 const referenceSchema = z.object({
@@ -13,7 +13,7 @@ const referenceSchema = z.object({
     .regex(/^[A-Za-z0-9._-]+$/),
 });
 
-export const startPaystarkTopup = createServerFn({ method: "POST" })
+export const startPaystackTopup = createServerFn({ method: "POST" })
   .middleware([requireActiveAccount])
   .validator((input) => topupAmountSchema.parse(input))
   .handler(async ({ data, context }) => {
@@ -31,7 +31,7 @@ export const startPaystarkTopup = createServerFn({ method: "POST" })
     });
   });
 
-export const verifyPaystarkTopup = createServerFn({ method: "POST" })
+export const verifyPaystackTopup = createServerFn({ method: "POST" })
   .middleware([requireActiveAccount])
   .validator((input) => referenceSchema.parse(input))
   .handler(async ({ data, context }) => {
