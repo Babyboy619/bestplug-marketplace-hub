@@ -203,6 +203,15 @@ export function SiteFrame({ children }: { children: ReactNode }) {
             >
               {isDark ? <Sun /> : <Moon />}
             </Button>
+            {!loading && !user && (
+              <Button
+                asChild
+                size="sm"
+                className="h-9 whitespace-nowrap bg-primary px-2.5 text-[11px] font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 sm:px-3 sm:text-xs"
+              >
+                <Link to="/auth">Sign up / Log in</Link>
+              </Button>
+            )}
             <Button variant="ghost" size="icon" className="relative size-9" asChild>
               <Link
                 to="/notifications"
