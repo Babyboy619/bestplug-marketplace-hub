@@ -1,3 +1,5 @@
+import { getServerEnv } from "@/lib/runtime-env.server";
+
 type ProviderEnvelope = {
   status?: boolean;
   message?: string;
@@ -20,9 +22,10 @@ export type PaystarkVerification = {
   payload: Record<string, unknown>;
 };
 
-export function getPaystarkConfigStatus() {
-  const secretConfigured = Boolean(process.env["PAYSTARK_SECRET_KEY"]?.trim());
-  const configuredBase = process.env["PAYSTARK_BASE_URL"]?.trim() || DEFAULT_PAYSTACK_BASE_URL;
+export function getPaystarkConfigStatus(request?: Request) {
+  const secretConfigured = Boolean(getServerEnv("PAYSTARK_SECRET_KEY", request)?.trim());
+  const configuredBase =
+    getServerEnv("PAYSTARK_BASE_URL", request)?.trim() || DEFAULT_PAYSTACK_BASE_URL;
   let apiUrlConfigured = false;
   try {
     const baseUrl = new URL(configuredBase);
@@ -34,9 +37,9 @@ export function getPaystarkConfigStatus() {
   return { secretConfigured, apiUrlConfigured, configured: secretConfigured && apiUrlConfigured };
 }
 
-export function getPaystarkConfig(): PaystarkConfig {
-  const status = getPaystarkConfigStatus();
-  const secretKey = process.env["PAYSTARK_SECRET_KEY"]?.trim();
+export function getPaystarkConfig(request?: Request): PaystarkConfig {
+  const status = getPaystarkConfigStatus(request);
+  const secretKey = getServerEnv("PAYSTARK_SECRET_KEY", request)?.trim();
   if (!status.secretConfigured || !secretKey) {
     throw new Error("Paystack server credentials are missing. Configure PAYSTARK_SECRET_KEY.");
   }

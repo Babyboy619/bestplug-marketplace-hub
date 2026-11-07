@@ -15,8 +15,19 @@ function handler(route: unknown, method: string): Handler {
   return found;
 }
 
+function cloudflareRequest(url: string, env: Record<string, unknown>) {
+  const request = new Request(url, {
+    headers: { Origin: "https://bestplugmarketplace.shop" },
+  });
+  Object.defineProperty(request, "runtime", {
+    value: { name: "cloudflare", cloudflare: { env } },
+  });
+  return request;
+}
+
 afterEach(() => {
   vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
 });
 
 describe("wallet payment production routes", () => {
@@ -91,7 +102,102 @@ describe("wallet payment production routes", () => {
       paystackApiUrlConfigured: true,
       databaseUrlConfigured: false,
       databaseServiceRoleConfigured: false,
+      databaseStatus: "missing_url",
     });
     expect(JSON.stringify(body)).not.toContain("test_secret_key");
+  });
+
+  it("uses request bindings and verifies real database access in the health check", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response("[]", { status: 200, headers: { "Content-Type": "application/json" } }),
+        ),
+    );
+    const request = cloudflareRequest(
+      "https://bestplugmarketplace.shop/api/public/payment-health",
+      {
+        SUPABASE_URL: "https://database.example.test",
+        SUPABASE_SERVICE_ROLE_KEY: "runtime-service-role-secret",
+        SUPABASE_PUBLISHABLE_KEY: "runtime-publishable-key",
+        PAYSTARK_SECRET_KEY: "runtime-paystack-secret",
+        PAYSTARK_BASE_URL: "https://api.paystack.co",
+      },
+    );
+
+    const response = await handler(PaymentHealthRoute, "GET")({ request });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      status: "ok",
+      authenticationConfigured: true,
+      databaseConfigured: true,
+      databaseStatus: "ok",
+      databaseUrlConfigured: true,
+      databaseServiceRoleConfigured: true,
+      paystackSecretConfigured: true,
+    });
+    expect(JSON.stringify(body)).not.toContain("runtime-service-role-secret");
+    expect(JSON.stringify(body)).not.toContain("runtime-paystack-secret");
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining("https://database.example.test/rest/v1/profiles"),
+      expect.any(Object),
+    );
+  });
+
+  it("reports a database connection failure separately from missing bindings", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(new Response("unavailable", { status: 503, statusText: "Unavailable" })),
+    );
+    const request = cloudflareRequest(
+      "https://bestplugmarketplace.shop/api/public/payment-health",
+      {
+        SUPABASE_URL: "https://database.example.test",
+        SUPABASE_SERVICE_ROLE_KEY: "runtime-service-role-secret",
+        SUPABASE_PUBLISHABLE_KEY: "runtime-publishable-key",
+        PAYSTARK_SECRET_KEY: "runtime-paystack-secret",
+        PAYSTARK_BASE_URL: "https://api.paystack.co",
+      },
+    );
+
+    const response = await handler(PaymentHealthRoute, "GET")({ request });
+    const body = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(body).toMatchObject({
+      databaseConfigured: false,
+      databaseStatus: "connection_failed",
+      databaseUrlConfigured: true,
+      databaseServiceRoleConfigured: true,
+    });
+  });
+
+  it("reports a missing service-role binding separately from a missing URL", async () => {
+    const request = cloudflareRequest(
+      "https://bestplugmarketplace.shop/api/public/payment-health",
+      {
+        SUPABASE_URL: "https://database.example.test",
+        SUPABASE_PUBLISHABLE_KEY: "runtime-publishable-key",
+        PAYSTARK_SECRET_KEY: "runtime-paystack-secret",
+        PAYSTARK_BASE_URL: "https://api.paystack.co",
+      },
+    );
+
+    const response = await handler(PaymentHealthRoute, "GET")({ request });
+    const body = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(body).toMatchObject({
+      databaseConfigured: false,
+      databaseStatus: "missing_service_role_key",
+      databaseUrlConfigured: true,
+      databaseServiceRoleConfigured: false,
+    });
   });
 });

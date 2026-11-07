@@ -13,7 +13,7 @@ export const Route = createFileRoute("/api/public/paystark-webhook")({
       POST: async ({ request }) => {
         let config: ReturnType<typeof getPaystarkConfig>;
         try {
-          config = getPaystarkConfig();
+          config = getPaystarkConfig(request);
         } catch (error) {
           console.error("[paystark-webhook] configuration unavailable", {
             errorName: error instanceof Error ? error.name : "UnknownError",

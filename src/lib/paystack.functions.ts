@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { requireActiveAccount } from "@/lib/active-account.middleware";
+import { getServerEnv } from "@/lib/runtime-env.server";
 import { z } from "zod";
 import { paymentAmount } from "./paystack-validation";
 export const initializePayment = createServerFn({ method: "POST" })
@@ -11,8 +12,9 @@ export const initializePayment = createServerFn({ method: "POST" })
       .parse(v),
   )
   .handler(async ({ data, context }) => {
-    const secret = process.env["PAYSTARK_SECRET_KEY"];
-    const base = process.env["PAYSTARK_BASE_URL"] ?? "https://api.paystack.co";
+    const request = getRequest();
+    const secret = getServerEnv("PAYSTARK_SECRET_KEY", request);
+    const base = getServerEnv("PAYSTARK_BASE_URL", request) ?? "https://api.paystack.co";
     if (!secret) throw new Error("PayStark payments are not activated yet. Contact support.");
     await context.supabase.rpc("ensure_user_wallet");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -60,7 +62,7 @@ export const initializePayment = createServerFn({ method: "POST" })
     if (intent.error) throw new Error("This payment is already processing. Check payment status.");
     const { gateway } = await import("./paystack.server");
     try {
-      const origin = new URL(getRequest().url).origin;
+      const origin = new URL(request.url).origin;
       const response = await gateway(secret, base, "/transaction/initialize", {
         email: context.claims.email,
         amount: Math.round(amount * 100),
@@ -87,6 +89,7 @@ export const verifyPayment = createServerFn({ method: "POST" })
   .middleware([requireActiveAccount])
   .inputValidator((v) => z.object({ reference: z.string().regex(/^bp-[a-f0-9-]{36}$/) }).parse(v))
   .handler(async ({ data, context }) => {
+    const request = getRequest();
     const { data: intent } = await context.supabase
       .from("payment_intents")
       .select("id")
@@ -94,12 +97,12 @@ export const verifyPayment = createServerFn({ method: "POST" })
       .eq("user_id", context.userId)
       .maybeSingle();
     if (!intent) throw new Error("Payment not found for your account");
-    const secret = process.env["PAYSTARK_SECRET_KEY"];
+    const secret = getServerEnv("PAYSTARK_SECRET_KEY", request);
     if (!secret) throw new Error("Payments are not activated yet");
     const { settleVerified } = await import("./paystack.server");
     return settleVerified(
       data.reference,
       secret,
-      process.env["PAYSTARK_BASE_URL"] ?? "https://api.paystack.co",
+      getServerEnv("PAYSTARK_BASE_URL", request) ?? "https://api.paystack.co",
     );
   });

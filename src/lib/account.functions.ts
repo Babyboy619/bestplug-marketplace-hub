@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireActiveAccount } from "@/lib/active-account.middleware";
+import { getServerEnv } from "@/lib/runtime-env.server";
 import { z } from "zod";
 import { nameSchema, passwordSchema } from "./paystack-validation";
 const displayNameSchema = z.object({ displayName: nameSchema });
@@ -84,8 +85,8 @@ export const updateEmail = createServerFn({ method: "POST" })
     if (!user.user?.email) throw new Error("Account email unavailable");
     const { createClient } = await import("@supabase/supabase-js");
     const client = createClient(
-      process.env["SUPABASE_URL"] ?? "",
-      process.env["SUPABASE_PUBLISHABLE_KEY"] ?? "",
+      getServerEnv("SUPABASE_URL") ?? "",
+      getServerEnv("SUPABASE_PUBLISHABLE_KEY") ?? "",
       { auth: { persistSession: false } },
     );
     const check = await client.auth.signInWithPassword({

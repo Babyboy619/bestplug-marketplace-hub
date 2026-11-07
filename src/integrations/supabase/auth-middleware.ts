@@ -3,6 +3,7 @@ import { createMiddleware } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from './types'
+import { getServerEnv } from '@/lib/runtime-env.server'
 
 
 
@@ -34,8 +35,9 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
 export const requireSupabaseAuth = createMiddleware({ type: 'function' }).server(
   async ({ next }) => {
     
-    const SUPABASE_URL = process.env['SUPABASE_URL'];
-    const SUPABASE_PUBLISHABLE_KEY = process.env['SUPABASE_PUBLISHABLE_KEY'];
+    const request = getRequest();
+    const SUPABASE_URL = getServerEnv('SUPABASE_URL', request);
+    const SUPABASE_PUBLISHABLE_KEY = getServerEnv('SUPABASE_PUBLISHABLE_KEY', request);
 
     if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
       const missing = [
@@ -47,8 +49,6 @@ export const requireSupabaseAuth = createMiddleware({ type: 'function' }).server
       throw new Error(message);
     }
     
-    const request = getRequest();
-
     if (!request?.headers) {
       throw new Error('Unauthorized: No request headers available');
     }

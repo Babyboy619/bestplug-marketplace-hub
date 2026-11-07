@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { getServerEnv } from "@/lib/runtime-env.server";
 
 export const Route = createFileRoute("/api/public/neurapay-webhook")({
   server: {
@@ -11,9 +12,9 @@ export const Route = createFileRoute("/api/public/neurapay-webhook")({
           request.headers.get("x-signature") ??
           request.headers.get("signature") ??
           "";
-        const secret = process.env["NEURAPAY_WEBHOOK_SECRET"];
-        const apiSecret = process.env["NEURAPAY_SECRET_KEY"];
-        const businessId = process.env["NEURAPAY_BUSINESS_ID"];
+        const secret = getServerEnv("NEURAPAY_WEBHOOK_SECRET", request);
+        const apiSecret = getServerEnv("NEURAPAY_SECRET_KEY", request);
+        const businessId = getServerEnv("NEURAPAY_BUSINESS_ID", request);
 
         if (!secret || !apiSecret || !businessId) {
           return Response.json({ error: "Webhook is not configured." }, { status: 503 });
@@ -83,7 +84,7 @@ export const Route = createFileRoute("/api/public/neurapay-webhook")({
           apiSecret,
           businessId,
           secret,
-          process.env["NEURAPAY_BASE_URL"],
+          getServerEnv("NEURAPAY_BASE_URL", request),
         );
         const checked = await verifyNeuraPayTransaction(gateway, intent.reference, Number(intent.amount));
         if (!checked.confirmed) {

@@ -21,6 +21,26 @@ npm i
 npm run dev
 ```
 
+## Cloudflare runtime bindings
+
+The Cloudflare Nitro deployment attaches Worker bindings to each request. Server
+handlers read database and payment configuration from those per-request
+bindings, rather than relying on values captured during the build. Configure
+these existing names in the Cloudflare Worker Variables and Secrets settings:
+
+- Variables: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`,
+  `PAYSTARK_BASE_URL`, and `PAYMENT_ALLOWED_ORIGINS`.
+- Secrets: `SUPABASE_SERVICE_ROLE_KEY`, `PAYSTARK_SECRET_KEY`,
+  `NEURAPAY_SECRET_KEY`, `NEURAPAY_BUSINESS_ID`, and
+  `NEURAPAY_WEBHOOK_SECRET` when using NeuraPay.
+
+Do not add a `VITE_` prefix to privileged keys or commit them to Wrangler
+configuration. If the bindings are already configured, no Cloudflare setting
+changes are needed; deploy the updated application code. The
+`/api/public/payment-health` endpoint reports `databaseStatus` as `ok`,
+`missing_url`, `missing_service_role_key`, or `connection_failed` and never
+returns secret values.
+
 ## Built with
 
 - TanStack Start

@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireActiveAccount } from "@/lib/active-account.middleware";
 import { topupAmountSchema } from "@/lib/payment-validation";
+import { getRequest } from "@tanstack/react-start/server";
+import { getServerEnv } from "@/lib/runtime-env.server";
 import { z } from "zod";
 
 const referenceSchema = z.object({
@@ -12,19 +14,24 @@ const referenceSchema = z.object({
     .regex(/^[A-Za-z0-9._-]+$/),
 });
 
-function getConfig() {
-  const secret = process.env["NEURAPAY_SECRET_KEY"];
-  const businessId = process.env["NEURAPAY_BUSINESS_ID"];
-  const webhookSecret = process.env["NEURAPAY_WEBHOOK_SECRET"] ?? "";
+function getConfig(request: Request) {
+  const secret = getServerEnv("NEURAPAY_SECRET_KEY", request);
+  const businessId = getServerEnv("NEURAPAY_BUSINESS_ID", request);
+  const webhookSecret = getServerEnv("NEURAPAY_WEBHOOK_SECRET", request) ?? "";
   if (!secret || !businessId) throw new Error("Wallet transfers are temporarily unavailable.");
-  return { secret, businessId, webhookSecret, baseUrl: process.env["NEURAPAY_BASE_URL"] };
+  return {
+    secret,
+    businessId,
+    webhookSecret,
+    baseUrl: getServerEnv("NEURAPAY_BASE_URL", request),
+  };
 }
 
 export const startNeuraPayTopup = createServerFn({ method: "POST" })
   .middleware([requireActiveAccount])
   .inputValidator((input) => topupAmountSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const config = getConfig();
+    const config = getConfig(getRequest());
     const { error: walletError } = await context.supabase.rpc("ensure_user_wallet");
     if (walletError) throw new Error("Your wallet could not be prepared. Please try again.");
 
@@ -164,7 +171,7 @@ export const verifyNeuraPayTopup = createServerFn({ method: "POST" })
         error: "This transfer is no longer pending.",
       };
 
-    const env = getConfig();
+    const env = getConfig(getRequest());
     const neurapay = await import("@/lib/neurapay.server");
     const gateway = neurapay.makeNeuraPayConfig(
       env.secret,

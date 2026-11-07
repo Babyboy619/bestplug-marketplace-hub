@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { Database } from "@/integrations/supabase/types";
 import { initializeWalletTopup, verifyWalletTopup } from "@/lib/paystark.payment.server";
 import { paymentReferenceSchema, topupAmountSchema } from "@/lib/payment-validation";
+import { getServerEnv } from "@/lib/runtime-env.server";
 
 const MAX_BODY_BYTES = 16_384;
 const MAIN_ORIGIN = "https://bestplug-marketplace-hub.lovable.app";
@@ -13,8 +14,8 @@ const payloadSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("verify"), reference: paymentReferenceSchema }),
 ]);
 
-function allowedOrigins() {
-  const configured = (process.env["PAYMENT_ALLOWED_ORIGINS"] ?? "")
+function allowedOrigins(request: Request) {
+  const configured = (getServerEnv("PAYMENT_ALLOWED_ORIGINS", request) ?? "")
     .split(",")
     .map((origin) => origin.trim())
     .filter(Boolean);
@@ -41,9 +42,10 @@ async function authenticate(request: Request) {
   const token = authorization.slice("Bearer ".length);
   if (!token || token.split(".").length !== 3) throw new Error("Unauthorized");
 
-  const supabaseUrl = process.env["SUPABASE_URL"] || import.meta.env["VITE_SUPABASE_URL"];
+  const supabaseUrl = getServerEnv("SUPABASE_URL", request) || import.meta.env["VITE_SUPABASE_URL"];
   const publishableKey =
-    process.env["SUPABASE_PUBLISHABLE_KEY"] || import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"];
+    getServerEnv("SUPABASE_PUBLISHABLE_KEY", request) ||
+    import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"];
   if (!supabaseUrl || !publishableKey) throw new Error("Authentication is unavailable");
   const supabase = createClient<Database>(supabaseUrl, publishableKey, {
     global: { headers: { Authorization: `Bearer ${token}` } },
@@ -88,12 +90,12 @@ export const Route = createFileRoute("/api/public/wallet-payments")({
     handlers: {
       OPTIONS: async ({ request }) => {
         const origin = request.headers.get("origin") ?? "";
-        if (!allowedOrigins().has(origin)) return new Response(null, { status: 403 });
+        if (!allowedOrigins(request).has(origin)) return new Response(null, { status: 403 });
         return new Response(null, { status: 204, headers: corsHeaders(origin) });
       },
       POST: async ({ request }) => {
         const origin = request.headers.get("origin") ?? "";
-        if (!allowedOrigins().has(origin))
+        if (!allowedOrigins(request).has(origin))
           return Response.json({ error: "Origin not allowed." }, { status: 403 });
         const headers = corsHeaders(origin);
         const contentLength = request.headers.get("content-length");
