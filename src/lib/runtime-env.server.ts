@@ -32,3 +32,35 @@ export function getServerEnv(name: string, request?: Request): string | undefine
 
   return process.env[name];
 }
+
+export function supabaseConfigMatchesBuild(
+  runtimeUrl: string | undefined,
+  runtimePublishableKey: string | undefined,
+  buildUrl = import.meta.env["VITE_SUPABASE_URL"],
+  buildPublishableKey = import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"],
+): boolean {
+  if (!runtimeUrl || !runtimePublishableKey) return false;
+  const normalizeUrl = (value: string) => value.replace(/\/+$/, "");
+  return (
+    (!buildUrl || normalizeUrl(buildUrl) === normalizeUrl(runtimeUrl)) &&
+    (!buildPublishableKey || buildPublishableKey === runtimePublishableKey)
+  );
+}
+
+export function getSupabaseRuntimeConfig(request?: Request) {
+  const url = getServerEnv("SUPABASE_URL", request);
+  const publishableKey = getServerEnv("SUPABASE_PUBLISHABLE_KEY", request);
+  if (!url || !publishableKey) {
+    const missing = [
+      ...(!url ? ["SUPABASE_URL"] : []),
+      ...(!publishableKey ? ["SUPABASE_PUBLISHABLE_KEY"] : []),
+    ];
+    throw new Error(`Missing Supabase environment variable(s): ${missing.join(", ")}.`);
+  }
+  if (!supabaseConfigMatchesBuild(url, publishableKey)) {
+    throw new Error(
+      "The browser and server Supabase configuration does not match. Set the same project URL and publishable key at build time and in Cloudflare bindings.",
+    );
+  }
+  return { url, publishableKey };
+}

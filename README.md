@@ -25,20 +25,28 @@ npm run dev
 
 The Cloudflare Nitro deployment attaches Worker bindings to each request. Server
 handlers read database and payment configuration from those per-request
-bindings, rather than relying on values captured during the build. Configure
-these values in the Cloudflare Worker Variables and Secrets settings:
+bindings. Configure the public Supabase URL and publishable key with identical
+values in both the Cloudflare build environment and Worker Variables; those
+same values are baked into the browser bundle so the browser and server use one
+project:
 
 - Variables: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`,
   `PAYSTACK_BASE_URL` (set to `https://api.paystack.co`),
-  `PAYMENT_ALLOWED_ORIGINS`, and optionally `PAYSTACK_PUBLIC_KEY`.
+  `PAYMENT_ALLOWED_ORIGINS` (set to `https://bestplugmarketplace.shop`), and
+  optionally `PAYSTACK_PUBLIC_KEY`.
 - Secrets: `SUPABASE_SERVICE_ROLE_KEY` and `PAYSTACK_SECRET_KEY`.
 
 The Paystack secret key must be server-only: never use a `VITE_` prefix, expose
 it in a browser response, or commit it to Wrangler configuration. The public
 key is not required by the hosted-checkout flow, but can be configured as a
-Worker Variable. If the deployed site is hosted at a different origin, set
-the public build-time variable `VITE_PAYMENT_GATEWAY_URL` to the origin that
-serves `/api/public/wallet-payments`. During migration, the server also accepts the old
+Worker Variable. Never give any secret a `VITE_` prefix. The Vite build
+explicitly defines only the public Supabase values and payment gateway origin;
+it does not automatically expose other `VITE_*` variables. If a service-role
+key was previously configured as `VITE_SUPABASE_SERVICE_ROLE_KEY`, rotate it
+before continuing to use the project. If the deployed site is hosted at a
+different origin, set the public build-time variable
+`VITE_PAYMENT_GATEWAY_URL` to the origin that serves
+`/api/public/wallet-payments`. During migration, the server also accepts the old
 `PAYSTARK_BASE_URL`, `PAYSTARK_PUBLIC_KEY`, and `PAYSTARK_SECRET_KEY` names;
 the corresponding `PAYSTACK_*` variable takes precedence.
 
@@ -68,14 +76,18 @@ payment configuration as booleans only; it never returns secret values.
 ## Database migrations
 
 Database changes are stored in `drizzle/migrations`. Configure
-`LOVABLE_DB_MIGRATION_URL` for the intended database, then apply pending
-migrations with:
+`SUPABASE_DB_URL` locally with the direct connection string for the existing
+Cloudflare-linked Supabase project, then apply pending migrations with:
 
 ```sh
 npx drizzle-kit migrate
 ```
 
-Review and back up the target database before applying migrations to production.
+Treat `SUPABASE_DB_URL` as a secret and do not configure it as a Worker binding.
+Review the target project and back it up before applying migrations to
+production. The local Supabase CLI config intentionally contains no project ID;
+link it explicitly to the existing Cloudflare project before running Supabase
+CLI commands.
 
 The administrator category and notification features are added by
 `0005_admin_categories_notifications.sql`. Broadcasts are stored once and served

@@ -1,40 +1,56 @@
 // @lovable.dev/vite-tanstack-config already includes the following — do NOT add them manually
 // or the app will break with duplicate plugins:
 //   - TanStack devtools (dev-only, first), tanstackStart, viteReact, tailwindcss, tsConfigPaths,
-//     nitro (build-only using cloudflare as a default target), VITE_* env injection, @ path alias,
+//     nitro (build-only using cloudflare as a default target), @ path alias,
 //     React/TanStack dedupe, error logger plugins, and sandbox detection (port/host/strictPort).
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+import { loadEnv } from "vite";
 
-// The deploy snapshot excludes .env (gitignored), so the published build must not
-// depend on it. These values are public client-side constants (project URL +
-// publishable key), safe to inline. Platform-injected env always wins.
-const cloudEnv = {
-  VITE_SUPABASE_PROJECT_ID: "nsijvmigmnlmvubtfwff",
-  VITE_SUPABASE_URL: "https://c--713e53d8-f294-43e9-a8ee-6aa6655a9809-prod.lovable.cloud",
-  VITE_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_QbfkiRKCgLrXBS51H42_nA_egMArRVM",
-} as const;
-for (const [key, value] of Object.entries(cloudEnv)) {
-  if (!process.env[key]) process.env[key] = value;
+const mode = process.argv.includes("build") ? "production" : "development";
+const fileEnv = loadEnv(mode, process.cwd(), [
+  "SUPABASE_URL",
+  "SUPABASE_PUBLISHABLE_KEY",
+  "VITE_SUPABASE_URL",
+  "VITE_SUPABASE_PUBLISHABLE_KEY",
+  "VITE_PAYMENT_GATEWAY_URL",
+]);
+const publicSupabaseUrl =
+  process.env["SUPABASE_URL"] ||
+  fileEnv["SUPABASE_URL"] ||
+  process.env["VITE_SUPABASE_URL"] ||
+  fileEnv["VITE_SUPABASE_URL"] ||
+  "";
+const publicSupabaseKey =
+  process.env["SUPABASE_PUBLISHABLE_KEY"] ||
+  fileEnv["SUPABASE_PUBLISHABLE_KEY"] ||
+  process.env["VITE_SUPABASE_PUBLISHABLE_KEY"] ||
+  fileEnv["VITE_SUPABASE_PUBLISHABLE_KEY"] ||
+  "";
+const paymentGatewayUrl =
+  process.env["VITE_PAYMENT_GATEWAY_URL"] ||
+  fileEnv["VITE_PAYMENT_GATEWAY_URL"] ||
+  "https://bestplugmarketplace.shop";
+
+if (mode === "production" && (!publicSupabaseUrl || !publicSupabaseKey)) {
+  throw new Error(
+    "Set SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY in the Cloudflare build environment before building.",
+  );
 }
 
-// Bake the same public constants into import.meta.env for every build of this
-// code (Lovable publish or a self-hosted export such as Cloudflare Pages), even
-// when neither .env nor platform-injected env is present.
-const bakedClientEnv = Object.fromEntries(
-  Object.entries(cloudEnv).map(([key, value]) => [
-    `import.meta.env.${key}`,
-    JSON.stringify(value),
-  ]),
-);
-
 export default defineConfig({
+  // The wrapper's VITE_* loader and Vite's default env prefix can expose
+  // secrets accidentally. Only the explicitly listed public values are defined.
+  envDefine: false,
   vite: {
-    define: bakedClientEnv,
+    envPrefix: [],
+    define: {
+      "import.meta.env.VITE_SUPABASE_URL": JSON.stringify(publicSupabaseUrl),
+      "import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY": JSON.stringify(publicSupabaseKey),
+      "import.meta.env.VITE_PAYMENT_GATEWAY_URL": JSON.stringify(paymentGatewayUrl),
+    },
   },
   tanstackStart: {
-    // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
-    // nitro/vite builds from this
     server: { entry: "server" },
   },
 });

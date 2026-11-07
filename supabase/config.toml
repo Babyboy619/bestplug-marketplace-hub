@@ -1,1 +1,1 @@
-project_id = "nsijvmigmnlmvubtfwff"
+# Link CLI operations explicitly to the existing Supabase project configured in Cloudflare.

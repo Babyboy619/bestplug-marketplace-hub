@@ -1,11 +1,38 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getServerEnv } from "@/lib/runtime-env.server";
+import { getServerEnv, supabaseConfigMatchesBuild } from "@/lib/runtime-env.server";
 
 afterEach(() => {
   vi.unstubAllEnvs();
 });
 
 describe("Cloudflare runtime environment", () => {
+  it("detects when browser and runtime Supabase settings point to different projects", () => {
+    expect(
+      supabaseConfigMatchesBuild(
+        "https://runtime.example.test",
+        "runtime-publishable-key",
+        "https://browser.example.test",
+        "runtime-publishable-key",
+      ),
+    ).toBe(false);
+    expect(
+      supabaseConfigMatchesBuild(
+        "https://runtime.example.test",
+        "runtime-publishable-key",
+        "https://runtime.example.test/",
+        "runtime-publishable-key",
+      ),
+    ).toBe(true);
+    expect(
+      supabaseConfigMatchesBuild(
+        "https://runtime.example.test",
+        "runtime-publishable-key",
+        "https://runtime.example.test",
+        "wrong-publishable-key",
+      ),
+    ).toBe(false);
+  });
+
   it("prefers request bindings over process environment", () => {
     vi.stubEnv("SUPABASE_URL", "https://build-time.example.test");
     const request = new Request("https://bestplugmarketplace.shop");

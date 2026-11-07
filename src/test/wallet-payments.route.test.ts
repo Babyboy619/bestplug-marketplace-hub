@@ -50,6 +50,7 @@ describe("wallet payment production routes", () => {
     });
 
     expect(allowed.status).toBe(204);
+    expect(allowed.headers.get("Cache-Control")).toBe("no-store");
     expect(allowed.headers.get("Access-Control-Allow-Origin")).toBe(
       "https://bestplugmarketplace.shop",
     );
@@ -70,6 +71,7 @@ describe("wallet payment production routes", () => {
     });
 
     expect(response.status).toBe(401);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
     expect(response.headers.get("Access-Control-Allow-Origin")).toBe(
       "https://bestplugmarketplace.shop",
     );

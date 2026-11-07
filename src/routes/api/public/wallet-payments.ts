@@ -4,10 +4,9 @@ import { z } from "zod";
 import type { Database } from "@/integrations/supabase/types";
 import { initializeWalletTopup, verifyWalletTopup } from "@/lib/paystack.payment.server";
 import { paymentReferenceSchema, topupAmountSchema } from "@/lib/payment-validation";
-import { getServerEnv } from "@/lib/runtime-env.server";
+import { getServerEnv, getSupabaseRuntimeConfig } from "@/lib/runtime-env.server";
 
 const MAX_BODY_BYTES = 16_384;
-const MAIN_ORIGIN = "https://bestplug-marketplace-hub.lovable.app";
 const CUSTOM_ORIGIN = "https://bestplugmarketplace.shop";
 const payloadSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("initialize"), amount: topupAmountSchema.shape.amount }),
@@ -19,7 +18,7 @@ function allowedOrigins(request: Request) {
     .split(",")
     .map((origin) => origin.trim())
     .filter(Boolean);
-  return new Set([MAIN_ORIGIN, CUSTOM_ORIGIN, ...configured]);
+  return new Set([CUSTOM_ORIGIN, ...configured]);
 }
 
 function corsHeaders(origin: string) {
@@ -28,6 +27,7 @@ function corsHeaders(origin: string) {
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Access-Control-Allow-Headers": "Authorization, Content-Type",
     "Access-Control-Max-Age": "600",
+    "Cache-Control": "no-store",
     Vary: "Origin",
   };
 }
@@ -42,11 +42,7 @@ async function authenticate(request: Request) {
   const token = authorization.slice("Bearer ".length);
   if (!token || token.split(".").length !== 3) throw new Error("Unauthorized");
 
-  const supabaseUrl = getServerEnv("SUPABASE_URL", request) || import.meta.env["VITE_SUPABASE_URL"];
-  const publishableKey =
-    getServerEnv("SUPABASE_PUBLISHABLE_KEY", request) ||
-    import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"];
-  if (!supabaseUrl || !publishableKey) throw new Error("Authentication is unavailable");
+  const { url: supabaseUrl, publishableKey } = getSupabaseRuntimeConfig(request);
   const supabase = createClient<Database>(supabaseUrl, publishableKey, {
     global: { headers: { Authorization: `Bearer ${token}` } },
     auth: { persistSession: false, autoRefreshToken: false },
@@ -90,13 +86,18 @@ export const Route = createFileRoute("/api/public/wallet-payments")({
     handlers: {
       OPTIONS: async ({ request }) => {
         const origin = request.headers.get("origin") ?? "";
-        if (!allowedOrigins(request).has(origin)) return new Response(null, { status: 403 });
+        if (!allowedOrigins(request).has(origin)) {
+          return new Response(null, { status: 403, headers: { "Cache-Control": "no-store" } });
+        }
         return new Response(null, { status: 204, headers: corsHeaders(origin) });
       },
       POST: async ({ request }) => {
         const origin = request.headers.get("origin") ?? "";
         if (!allowedOrigins(request).has(origin))
-          return Response.json({ error: "Origin not allowed." }, { status: 403 });
+          return Response.json(
+            { error: "Origin not allowed." },
+            { status: 403, headers: { "Cache-Control": "no-store" } },
+          );
         const headers = corsHeaders(origin);
         const contentLength = request.headers.get("content-length");
         if (contentLength && Number(contentLength) > MAX_BODY_BYTES) {

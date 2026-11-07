@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
+import { getCurrentAccessToken } from "@/integrations/supabase/access-token";
 
 const DEFAULT_GATEWAY = "https://bestplugmarketplace.shop";
 const gatewayOrigin = import.meta.env["VITE_PAYMENT_GATEWAY_URL"] || DEFAULT_GATEWAY;
@@ -12,9 +12,8 @@ function getGatewayUrl() {
 }
 
 async function requestGateway<T>(body: Record<string, unknown>): Promise<T> {
-  const { data, error } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
-  if (error || !token) throw new Error("Sign in again before starting or checking a payment.");
+  const token = await getCurrentAccessToken();
+  if (!token) throw new Error("Sign in again before starting or checking a payment.");
 
   const endpoint = getGatewayUrl();
   const action = typeof body["action"] === "string" ? body["action"] : "unknown";

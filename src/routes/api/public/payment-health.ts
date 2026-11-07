@@ -1,9 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createSupabaseAdminClient } from "@/integrations/supabase/client.server";
-import { getServerEnv } from "@/lib/runtime-env.server";
+import { getServerEnv, supabaseConfigMatchesBuild } from "@/lib/runtime-env.server";
 import { getPaystackConfigStatus } from "@/lib/paystack.server";
 
-const MAIN_ORIGIN = "https://bestplug-marketplace-hub.lovable.app";
 const CUSTOM_ORIGIN = "https://bestplugmarketplace.shop";
 
 function allowedOrigins(request: Request) {
@@ -11,7 +10,7 @@ function allowedOrigins(request: Request) {
     .split(",")
     .map((origin) => origin.trim())
     .filter(Boolean);
-  return new Set([MAIN_ORIGIN, CUSTOM_ORIGIN, ...configured]);
+  return new Set([CUSTOM_ORIGIN, ...configured]);
 }
 
 function corsHeaders(origin: string) {
@@ -29,22 +28,24 @@ export const Route = createFileRoute("/api/public/payment-health")({
     handlers: {
       OPTIONS: async ({ request }) => {
         const origin = request.headers.get("origin") ?? "";
-        if (!allowedOrigins(request).has(origin)) return new Response(null, { status: 403 });
+        if (!allowedOrigins(request).has(origin)) {
+          return new Response(null, { status: 403, headers: { "Cache-Control": "no-store" } });
+        }
         return new Response(null, { status: 204, headers: corsHeaders(origin) });
       },
       GET: async ({ request }) => {
         const origin = request.headers.get("origin") ?? "";
         if (origin && !allowedOrigins(request).has(origin)) {
-          return Response.json({ error: "Origin not allowed." }, { status: 403 });
+          return Response.json(
+            { error: "Origin not allowed." },
+            { status: 403, headers: { "Cache-Control": "no-store" } },
+          );
         }
 
         const paystack = getPaystackConfigStatus(request);
-        const supabaseUrl =
-          getServerEnv("SUPABASE_URL", request) || import.meta.env["VITE_SUPABASE_URL"];
-        const publishableKey =
-          getServerEnv("SUPABASE_PUBLISHABLE_KEY", request) ||
-          import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"];
-        const authenticationConfigured = Boolean(supabaseUrl && publishableKey);
+        const supabaseUrl = getServerEnv("SUPABASE_URL", request);
+        const publishableKey = getServerEnv("SUPABASE_PUBLISHABLE_KEY", request);
+        const authenticationConfigured = supabaseConfigMatchesBuild(supabaseUrl, publishableKey);
         const databaseUrl = getServerEnv("SUPABASE_URL", request);
         const serviceRoleKey = getServerEnv("SUPABASE_SERVICE_ROLE_KEY", request);
         const databaseUrlConfigured = Boolean(databaseUrl);
