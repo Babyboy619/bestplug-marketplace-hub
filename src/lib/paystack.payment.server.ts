@@ -36,11 +36,11 @@ export async function initializeWalletTopup(input: {
   email: string;
   amount: number;
   callbackUrl: string;
-}) {
+}, request: Request) {
   const amount = topupAmountSchema.parse({ amount: input.amount }).amount;
   const email = input.email.trim();
   if (!email) throw new Error("Your account needs a verified email to start payment.");
-  const config = getPaystackConfig();
+  const config = getPaystackConfig(request);
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const reference = `ps-${crypto.randomUUID()}`;
   try {
@@ -103,7 +103,7 @@ export async function initializeWalletTopup(input: {
   }
 }
 
-export async function verifyWalletTopup(reference: string, userId: string) {
+export async function verifyWalletTopup(reference: string, userId: string, request: Request) {
   reference = paymentReferenceSchema.parse(reference);
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data: intent, error: intentError } = await supabaseAdmin
@@ -120,7 +120,7 @@ export async function verifyWalletTopup(reference: string, userId: string) {
   if (intent.status !== "pending") return { status: intent.status, amount: Number(intent.amount) };
 
   const checked = await verifyPaystackTransaction(
-    getPaystackConfig(),
+    getPaystackConfig(request),
     intent.reference,
     toMinorUnits(Number(intent.amount)),
   );

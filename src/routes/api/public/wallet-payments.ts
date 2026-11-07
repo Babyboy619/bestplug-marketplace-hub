@@ -140,10 +140,10 @@ export const Route = createFileRoute("/api/public/wallet-payments")({
               ...user,
               amount: parsed.data.amount,
               callbackUrl: new URL("/payments/callback", origin).toString(),
-            });
+            }, request);
             return Response.json(result, { headers });
           }
-          return Response.json(await verifyWalletTopup(parsed.data.reference, user.userId), {
+          return Response.json(await verifyWalletTopup(parsed.data.reference, user.userId, request), {
             headers,
           });
         } catch (error) {
